@@ -177,10 +177,27 @@ export function App() {
     </section>
   );
 
+  const renderSpecial = (pile: 'rare' | 'legendary', label: string) => {
+    const card = game.decks[pile].faceUp[0];
+    return (
+      <div className={`special-cell ${pile}`} key={pile}>
+        <div className="special-head">
+          <span className="special-label">{label}</span>
+          <span className="deck-count">{game.decks[pile].drawPile.length}张</span>
+        </div>
+        {card ? (
+          <CardView card={card} viewer={current} affordable={affordBoard(card.id)} onBuy={isHumanTurn ? () => buyBoard(card.id) : undefined} />
+        ) : (
+          <div className="card empty">空</div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="app">
       <header className="topbar">
-        <h1>璀璨宝石 · 宝可梦版 <span className="subtitle">Splendor: Pokémon(非官方同人)</span></h1>
+        <h1>璀璨宝石：宝可梦 <span className="subtitle">Splendor: Pokémon(非官方同人)</span></h1>
         <div className="setup">
           <label>人数：
             <select value={setup.length} onChange={(e) => setSetup(resizeSetup(setup, Number(e.target.value)))}>
@@ -214,8 +231,10 @@ export function App() {
       <div className="layout">
         <main className="board">
           {TIER_ROWS.map((t) => renderRow(t, `T${t}`, true))}
-          {renderRow('legendary', '传说', false)}
-          {renderRow('rare', '稀有', false)}
+          <section className="special-section">
+            {renderSpecial('legendary', '传说')}
+            {renderSpecial('rare', '稀有')}
+          </section>
 
           <section className="bank-section">
             {humanEvolving ? (

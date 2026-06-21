@@ -1,4 +1,4 @@
-# 宝可梦：训练家联盟 (Pokémon Trainer League)
+# 璀璨宝石：宝可梦 (Splendor: Pokémon)
 
 官方授权桌游 **《璀璨宝石:宝可梦版》(Splendor: Pokémon)** 的**非官方同人数字实现** + 启发式 AI,纯前端(Vite + React + TypeScript),打开即玩,AI 跑在浏览器里。
 
