@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   applyAction,
   buildBuyAction,
+  colorVectorMeets,
   createGame,
   legalEvolutions,
   legalMoves,
@@ -149,6 +150,35 @@ export function App() {
   const reservedAfford = affordReservedSet();
   const winner = game.isGameOver ? game.players.find((p) => p.id === game.winnerId) : undefined;
 
+  // 进化:目标物种当前是否在展示区/预订区可得
+  function targetAvailable(speciesId: string): boolean {
+    for (const pile of ALL_PILES) {
+      if (game.decks[pile].faceUp.some((c) => c && c.kind === 'normal' && c.speciesId === speciesId)) return true;
+    }
+    return current.reserved.some((c) => c.kind === 'normal' && c.speciesId === speciesId);
+  }
+  // 展示区/预订区的卡 Y:相对当前玩家的进化关系('can'=拥有前置且加成满足;'target'=拥有前置但未满足)
+  function evoStateOfBoard(card: Card): 'can' | 'target' | null {
+    if (card.kind !== 'normal' || card.stage <= 1) return null;
+    const pre = current.purchased.find(
+      (x) => x.kind === 'normal' && x.stage === card.stage - 1 && x.evolvesToSpeciesId === card.speciesId && x.evolveCost,
+    );
+    if (!pre) return null;
+    return colorVectorMeets(current.bonuses, pre.evolveCost!) ? 'can' : 'target';
+  }
+  // 已购卡的进化状态(用于「我的宝可梦」面板)
+  function ownedEvo(card: Card): { cls: string; label: string } | null {
+    if (card.kind !== 'normal' || card.stage >= 3 || !card.evolvesToSpeciesId || !card.evolveCost) return null;
+    const meet = colorVectorMeets(current.bonuses, card.evolveCost);
+    const avail = targetAvailable(card.evolvesToSpeciesId);
+    if (meet && avail) return { cls: 'can', label: '✦可进化' };
+    if (meet && !avail) return { cls: 'ready', label: '就绪·待目标' };
+    const short = COLOR_ORDER.filter((c) => (card.evolveCost![c] ?? 0) > current.bonuses[c])
+      .map((c) => `${BALL_META[c].zh.replace('球', '')}${(card.evolveCost![c] ?? 0) - current.bonuses[c]}`)
+      .join(' ');
+    return { cls: 'need', label: `还需 ${short}` };
+  }
+
   const renderRow = (pile: PileKey, label: string, canDeckReserve: boolean) => (
     <section className="tier-row" key={String(pile)}>
       <div className={`deck-pile ${typeof pile === 'string' ? pile : ''}`}>
@@ -166,6 +196,7 @@ export function App() {
               card={card}
               viewer={current}
               affordable={affordBoard(card.id)}
+              evoState={evoStateOfBoard(card)}
               onBuy={isHumanTurn ? () => buyBoard(card.id) : undefined}
               onReserve={canReserve && card.kind === 'normal' ? () => apply({ type: 'RESERVE', source: { kind: 'board', cardId: card.id } }) : undefined}
             />
@@ -304,6 +335,24 @@ export function App() {
                 onBuyReserved={buyReserved}
               />
             ))}
+          </div>
+          <div className="owned-team">
+            <span className="section-label">{current.name} 的宝可梦（{current.purchased.length}）{current.evolved.length > 0 && `· 已进化 ${current.evolved.length}`}</span>
+            <div className="owned-chips">
+              {current.purchased.length === 0 && <span className="muted">尚无</span>}
+              {[...current.purchased]
+                .sort((a, b) => COLOR_ORDER.indexOf(a.bonus) - COLOR_ORDER.indexOf(b.bonus) || a.stage - b.stage)
+                .map((c) => {
+                  const evo = ownedEvo(c);
+                  return (
+                    <span key={c.id} className={`owned-chip ${evo ? `e-${evo.cls}` : ''}`} title={c.name}>
+                      <i className="odot" style={{ background: BALL_META[c.bonus].hex }} />
+                      {c.nameZh}<sup>{c.stage}</sup>
+                      {evo && <em className={`oevo ${evo.cls}`}>{evo.label}</em>}
+                    </span>
+                  );
+                })}
+            </div>
           </div>
           <div className="log">
             <span className="section-label">对局记录</span>

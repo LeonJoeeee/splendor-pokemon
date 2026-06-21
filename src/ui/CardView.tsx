@@ -7,6 +7,8 @@ interface Props {
   viewer?: PlayerState; // 当前玩家,用于成本预览
   affordable?: boolean;
   reservedTag?: boolean;
+  /** 'can'=你拥有前置且加成已满足→回合末可免费进化获得;'target'=拥有前置但加成未满足 */
+  evoState?: 'can' | 'target' | null;
   onBuy?: () => void;
   onReserve?: () => void;
 }
@@ -14,13 +16,13 @@ interface Props {
 const KIND_LABEL: Record<string, string> = { rare: '稀有', legendary: '传说' };
 const STAGE_LABEL: Record<number, string> = { 1: '基础', 2: '一阶', 3: '最终' };
 
-export function CardView({ card, viewer, affordable, reservedTag, onBuy, onReserve }: Props) {
+export function CardView({ card, viewer, affordable, reservedTag, evoState, onBuy, onReserve }: Props) {
   const bonusMeta = BALL_META[card.bonus];
   const res = viewer ? resolveBuyCost(viewer, card) : null;
   const special = card.kind !== 'normal';
 
   return (
-    <div className={`card ${special ? `special ${card.kind}` : `tier-${card.stage}`} ${affordable ? 'affordable' : ''}`} style={{ borderTopColor: bonusMeta.hex }}>
+    <div className={`card ${special ? `special ${card.kind}` : `tier-${card.stage}`} ${affordable ? 'affordable' : ''} ${evoState ? `evo-${evoState}` : ''}`} style={{ borderTopColor: bonusMeta.hex }}>
       <div className="card-head">
         <span className="card-points">{card.points > 0 ? card.points : ''}</span>
         <span className="card-bonus" style={{ background: bonusMeta.hex, color: textOn(card.bonus) }}>
@@ -32,9 +34,11 @@ export function CardView({ card, viewer, affordable, reservedTag, onBuy, onReser
         <img src={pokeArt(card.dexId)} alt={card.name} loading="lazy" />
       </div>
 
-      <div className="card-name">{card.nameZh}<span className="card-name-en">{card.name}</span></div>
+      <div className="card-name">{card.nameZh}</div>
 
       <div className="card-tags">
+        {evoState === 'can' && <span className="tag evo-can-tag">✦可进化</span>}
+        {evoState === 'target' && <span className="tag evo-tgt-tag">⤴目标</span>}
         {special ? <span className={`tag ${card.kind}-tag`}>{KIND_LABEL[card.kind]}</span>
           : <span className="tag tier-tag">{STAGE_LABEL[card.stage]}</span>}
         {card.evolvesToSpeciesId && card.evolveCost && (

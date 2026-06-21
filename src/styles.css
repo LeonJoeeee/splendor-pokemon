@@ -50,16 +50,16 @@ button:disabled { cursor: not-allowed; opacity: 0.4; }
 .special-cell .card { flex: 0 0 132px; max-width: 132px; }
 
 /* 卡牌 */
-.card { background: var(--panel2); border: 1px solid var(--line); border-top: 3px solid var(--line); border-radius: 9px; padding: 5px; min-height: 128px; display: flex; flex-direction: column; gap: 2px; position: relative; }
+.card { background: var(--panel2); border: 1px solid var(--line); border-top: 3px solid var(--line); border-radius: 9px; padding: 5px; min-height: 168px; display: flex; flex-direction: column; gap: 2px; position: relative; }
 .card.affordable { box-shadow: 0 0 0 2px var(--good), 0 3px 12px rgba(70,196,106,0.22); }
-.card.empty { align-items: center; justify-content: center; color: var(--muted); border-style: dashed; min-height: 128px; }
+.card.empty { align-items: center; justify-content: center; color: var(--muted); border-style: dashed; min-height: 168px; }
 .card.special.rare { background: linear-gradient(180deg, #2c2613, var(--panel2)); }
 .card.special.legendary { background: linear-gradient(180deg, #2e1740, var(--panel2)); }
 .card-head { display: flex; justify-content: space-between; align-items: center; position: absolute; top: 5px; left: 6px; right: 6px; z-index: 2; }
 .card-points { font-size: 18px; font-weight: 800; color: var(--accent); text-shadow: 0 1px 3px #000, 0 0 4px #000; min-height: 20px; }
 .card-bonus { min-width: 20px; height: 20px; padding: 0 5px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; box-shadow: 0 1px 3px rgba(0,0,0,0.5); }
-.card-art { height: 44px; display: flex; align-items: center; justify-content: center; margin-top: 1px; }
-.card-art img { max-height: 44px; max-width: 100%; object-fit: contain; filter: drop-shadow(0 2px 3px rgba(0,0,0,0.4)); }
+.card-art { height: 82px; display: flex; align-items: center; justify-content: center; margin-top: 1px; }
+.card-art img { max-height: 82px; max-width: 100%; object-fit: contain; filter: drop-shadow(0 2px 3px rgba(0,0,0,0.4)); }
 .card-name { font-size: 12px; font-weight: 700; line-height: 1.05; }
 .card-name-en { display: block; font-size: 8px; color: var(--muted); font-weight: 400; }
 .card-tags { display: flex; flex-wrap: wrap; gap: 3px; align-items: center; }
@@ -107,7 +107,11 @@ button:disabled { cursor: not-allowed; opacity: 0.4; }
 /* 侧栏 */
 .sidebar { display: flex; flex-direction: column; gap: 8px; }
 .players { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.player-panel { background: var(--panel); border: 1px solid var(--line); border-radius: 9px; padding: 7px 9px; }
+.player-panel { background: var(--panel); border: 1px solid var(--line); border-radius: 9px; padding: 7px 9px; position: relative; }
+.owned-pop { display: none; position: absolute; top: 100%; left: 0; right: 0; z-index: 30; margin-top: 4px; background: #0e1422; border: 1px solid var(--accent2); border-radius: 8px; padding: 7px 9px; box-shadow: 0 8px 24px rgba(0,0,0,0.55); }
+.player-panel:hover .owned-pop { display: block; }
+.owned-pop-title { font-size: 11px; color: var(--muted); margin-bottom: 5px; }
+.owned-pop-chips { display: flex; flex-wrap: wrap; gap: 4px; max-height: 220px; overflow-y: auto; }
 .player-panel.current { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
 .player-head { display: flex; justify-content: space-between; align-items: center; }
 .player-name { font-weight: 700; font-size: 13px; }
@@ -127,6 +131,24 @@ button:disabled { cursor: not-allowed; opacity: 0.4; }
 .log ul { list-style: none; margin: 5px 0 0; padding: 0; max-height: 132px; overflow-y: auto; }
 .log li { font-size: 11px; color: var(--muted); padding: 2px 0; border-bottom: 1px solid var(--line); }
 
+/* 进化高亮 */
+.card.evo-can { outline: 2px solid #38bdf8; outline-offset: 1px; }
+.card.evo-target { box-shadow: inset 0 0 0 1px #d9a441; }
+.evo-can-tag { background: #0e3a4d; color: #7fd7ff; font-weight: 700; }
+.evo-tgt-tag { background: #3a2e12; color: #e8c06a; }
+
+/* 我的宝可梦 */
+.owned-team { background: var(--panel); border: 1px solid var(--line); border-radius: 9px; padding: 7px 10px; }
+.owned-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px; max-height: 156px; overflow-y: auto; }
+.owned-chip { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; background: var(--panel2); border: 1px solid var(--line); border-radius: 12px; padding: 2px 7px; }
+.owned-chip .odot { width: 9px; height: 9px; border-radius: 50%; flex: 0 0 auto; }
+.owned-chip sup { color: var(--muted); font-size: 8px; }
+.owned-chip .oevo { font-style: normal; font-size: 9px; border-radius: 6px; padding: 0 5px; }
+.owned-chip.e-can { border-color: #38bdf8; }
+.oevo.can { background: #0e3a4d; color: #7fd7ff; font-weight: 700; }
+.oevo.ready { background: #3a2e12; color: #e8c06a; }
+.oevo.need { background: #2b3550; color: var(--muted); }
+
 /* ============ 手机(竖屏)============ */
 @media (max-width: 860px) {
   .app { padding: 6px 7px 12px; }
@@ -144,6 +166,9 @@ button:disabled { cursor: not-allowed; opacity: 0.4; }
   .player-panel .token-row { margin-top: 3px; }
   .mini-token, .mini-bonus { font-size: 10px; padding: 0 4px; }
   .log { display: none; }                            /* 手机隐藏日志 */
+  .owned-team { padding: 5px 7px; order: 2; }        /* 保留「我的宝可梦」,横向紧凑一行 */
+  .owned-chips { flex-wrap: nowrap; overflow-x: auto; max-height: none; }
+  .owned-chip { flex: 0 0 auto; }
 
   /* 棋盘:更小的卡 */
   .board { gap: 5px; }
@@ -152,10 +177,10 @@ button:disabled { cursor: not-allowed; opacity: 0.4; }
   .deck-label { font-size: 12px; }
   .deck-pile .deck-count, .deck-pile .btn.tiny { display: none; }
   .cards-row { gap: 4px; }
-  .card { min-height: 106px; padding: 4px; gap: 1px; }
-  .card.empty { min-height: 106px; }
-  .card-art { height: 34px; }
-  .card-art img { max-height: 34px; }
+  .card { min-height: 138px; padding: 4px; gap: 1px; }
+  .card.empty { min-height: 138px; }
+  .card-art { height: 58px; }
+  .card-art img { max-height: 58px; }
   .card-name { font-size: 10px; }
   .card-name-en { display: none; }
   .card-points { font-size: 14px; min-height: 16px; }

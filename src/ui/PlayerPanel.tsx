@@ -55,6 +55,22 @@ export function PlayerPanel({ player, isCurrent, isActiveHuman, affordableReserv
           />
         ))}
       </div>
+
+      {player.purchased.length > 0 && (
+        <div className="owned-pop">
+          <div className="owned-pop-title">{player.name} 拥有 {player.purchased.length} · 已进化 {player.evolved.length}</div>
+          <div className="owned-pop-chips">
+            {[...player.purchased]
+              .sort((a, b) => COLOR_ORDER.indexOf(a.bonus) - COLOR_ORDER.indexOf(b.bonus) || a.stage - b.stage)
+              .map((c) => (
+                <span key={c.id} className="owned-chip" title={c.name}>
+                  <i className="odot" style={{ background: BALL_META[c.bonus].hex }} />
+                  {c.nameZh}<sup>{c.stage}</sup>
+                </span>
+              ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
