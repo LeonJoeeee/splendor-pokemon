@@ -1,18 +1,13 @@
 import { totalTokens, type PlayerState } from '../engine';
-import { COLOR_ORDER, PAYABLE_ORDER, type PayableToken } from '../engine/types';
-import { BALL_META, textOn } from './theme';
-import { CardView } from './CardView';
+import { COLOR_ORDER } from '../engine/types';
+import { BALL_META } from './theme';
 
 interface Props {
   player: PlayerState;
   isCurrent: boolean;
-  isActiveHuman: boolean;
-  affordableReserved: Set<string>;
-  onBuyReserved: (cardId: string) => void;
 }
 
-export function PlayerPanel({ player, isCurrent, isActiveHuman, affordableReserved, onBuyReserved }: Props) {
-  const tokenList = PAYABLE_ORDER.filter((t) => player.tokens[t] > 0);
+export function PlayerPanel({ player, isCurrent }: Props) {
   return (
     <div className={`player-panel ${isCurrent ? 'current' : ''}`}>
       <div className="player-head">
@@ -20,41 +15,29 @@ export function PlayerPanel({ player, isCurrent, isActiveHuman, affordableReserv
         <span className="player-points" title="分数">🏆 {player.points}</span>
       </div>
 
-      <div className="row-label">手牌球({totalTokens(player.tokens)}/10)</div>
-      <div className="token-row">
-        {tokenList.length === 0 && <span className="muted">—</span>}
-        {tokenList.map((t: PayableToken) => (
-          <span key={t} className="mini-token" style={{ background: BALL_META[t].hex, color: textOn(t) }}>
-            {BALL_META[t].zh.replace('球', '')} {player.tokens[t]}
-          </span>
-        ))}
+      <div className="row-label">宝可梦球　购买力 = 手牌 + 折扣（{totalTokens(player.tokens)}/10）</div>
+      <div className="combo-row">
+        <div className="combo-head"><span /><span>购买力</span><span>手牌</span><span>折扣</span></div>
+        {COLOR_ORDER.map((c) => {
+          const hand = player.tokens[c], bonus = player.bonuses[c];
+          return (
+            <span key={c} className="combo-cell" title={`${BALL_META[c].zh}:购买力 ${hand + bonus}(手牌 ${hand} + 折扣 ${bonus})`}>
+              <i className="combo-dot" style={{ background: BALL_META[c].hex }} />
+              <b className="combo-power">{hand + bonus}</b>
+              <span className="combo-hand">{hand}</span>
+              <em className="combo-bonus" style={{ color: BALL_META[c].hex }}>{bonus}</em>
+            </span>
+          );
+        })}
+        <span className="combo-cell" title={`大师球(百搭):手牌 ${player.tokens.master}`}>
+          <i className="combo-dot" style={{ background: BALL_META.master.hex }} />
+          <b className="combo-power">{player.tokens.master}</b>
+          <span className="combo-hand">{player.tokens.master}</span>
+          <em className="combo-bonus muted">–</em>
+        </span>
       </div>
 
-      <div className="row-label">永久加成(减免成本)</div>
-      <div className="token-row">
-        {COLOR_ORDER.map((c) => (
-          <span key={c} className={`mini-bonus ${player.bonuses[c] === 0 ? 'zero' : ''}`} style={{ borderColor: BALL_META[c].hex, color: BALL_META[c].hex }}>
-            {BALL_META[c].zh.replace('球', '')} {player.bonuses[c]}
-          </span>
-        ))}
-      </div>
-
-      <div className="row-label">
-        已进化 {player.evolved.length}　·　预订 {player.reserved.length}/3
-      </div>
-      <div className="reserved-row">
-        {player.reserved.length === 0 && <span className="muted">—</span>}
-        {player.reserved.map((c) => (
-          <CardView
-            key={c.id}
-            card={c}
-            viewer={isActiveHuman ? player : undefined}
-            reservedTag
-            affordable={affordableReserved.has(c.id)}
-            onBuy={isActiveHuman ? () => onBuyReserved(c.id) : undefined}
-          />
-        ))}
-      </div>
+      <div className="row-label">🏆 {player.points} 分　·　已进化 {player.evolved.length}　·　预订 {player.reserved.length}/3</div>
 
       {player.purchased.length > 0 && (
         <div className="owned-pop">

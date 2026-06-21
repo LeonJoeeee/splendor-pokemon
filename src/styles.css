@@ -106,7 +106,7 @@ button:disabled { cursor: not-allowed; opacity: 0.4; }
 
 /* 侧栏 */
 .sidebar { display: flex; flex-direction: column; gap: 8px; }
-.players { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.players { display: flex; flex-direction: column; gap: 8px; }
 .player-panel { background: var(--panel); border: 1px solid var(--line); border-radius: 9px; padding: 7px 9px; position: relative; }
 .owned-pop { display: none; position: absolute; top: 100%; left: 0; right: 0; z-index: 30; margin-top: 4px; background: #0e1422; border: 1px solid var(--accent2); border-radius: 8px; padding: 7px 9px; box-shadow: 0 8px 24px rgba(0,0,0,0.55); }
 .player-panel:hover .owned-pop { display: block; }
@@ -121,6 +121,16 @@ button:disabled { cursor: not-allowed; opacity: 0.4; }
 .mini-token { font-size: 11px; font-weight: 700; border-radius: 4px; padding: 1px 5px; }
 .mini-bonus { font-size: 11px; font-weight: 700; border: 1.5px solid; border-radius: 4px; padding: 1px 5px; background: transparent; }
 .mini-bonus.zero { opacity: 0.32; }
+.combo-row { display: flex; flex-direction: column; gap: 2px; }
+.combo-head, .combo-cell { display: grid; grid-template-columns: 14px 1.1fr 1fr 1fr; align-items: center; gap: 8px; }
+.combo-head { font-size: 9px; color: var(--muted); padding: 0 8px; }
+.combo-head span { text-align: right; }
+.combo-cell { border: 1px solid var(--line); border-radius: 6px; padding: 2px 8px; background: rgba(255,255,255,0.03); }
+.combo-dot { width: 11px; height: 11px; border-radius: 50%; }
+.combo-power { text-align: right; font-weight: 800; font-size: 14px; color: var(--accent); }
+.combo-hand { text-align: right; font-weight: 600; font-size: 12px; }
+.combo-bonus { text-align: right; font-weight: 700; font-size: 12px; }
+.combo-bonus.muted { color: var(--muted); }
 .reserved-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; }
 .reserved-row .card { min-height: 120px; padding: 4px; }
 .reserved-row .card-art { height: 42px; }
@@ -136,6 +146,8 @@ button:disabled { cursor: not-allowed; opacity: 0.4; }
 .card.evo-target { box-shadow: inset 0 0 0 1px #d9a441; }
 .evo-can-tag { background: #0e3a4d; color: #7fd7ff; font-weight: 700; }
 .evo-tgt-tag { background: #3a2e12; color: #e8c06a; }
+.evo-need-tag { background: #1a2740; color: var(--muted); }
+.evo-need-tag .dot { display: inline-flex; align-items: center; justify-content: center; min-width: 12px; height: 12px; border-radius: 6px; font-size: 8px; font-style: normal; color: #fff; padding: 0 2px; margin-left: 1px; }
 
 /* 我的宝可梦 */
 .owned-team { background: var(--panel); border: 1px solid var(--line); border-radius: 9px; padding: 7px 10px; }
@@ -149,6 +161,25 @@ button:disabled { cursor: not-allowed; opacity: 0.4; }
 .oevo.ready { background: #3a2e12; color: #e8c06a; }
 .oevo.need { background: #2b3550; color: var(--muted); }
 
+/* 我的预订(独立区) */
+.reserve-area { background: var(--panel); border: 1px solid var(--line); border-radius: 9px; padding: 7px 10px; }
+.reserve-area .reserved-row { margin-top: 5px; }
+
+/* 菜单 / 大厅 / 联机 */
+.menu { max-width: 600px; margin: 5vh auto; text-align: center; }
+.menu h1 { font-size: 30px; margin: 6px 0; }
+.menu-sub { color: var(--muted); margin-top: 0; }
+.menu-foot { color: var(--muted); font-size: 12px; margin-top: 18px; }
+.menu code { background: var(--panel2); padding: 1px 5px; border-radius: 4px; }
+.big-btn { display: block; width: 100%; margin: 10px 0; padding: 16px; font-size: 17px; border-radius: 12px; }
+.url-input { width: 100%; max-width: 420px; padding: 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel2); color: var(--text); margin: 8px auto; font-size: 14px; }
+.join-row { display: flex; gap: 8px; justify-content: center; margin: 10px 0; }
+.join-row .url-input { margin: 0; }
+.lobby-seats { display: flex; flex-direction: column; gap: 8px; margin: 14px 0; }
+.lobby-seat { display: flex; justify-content: space-between; align-items: center; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 9px 12px; }
+.conn-status { font-size: 12px; color: var(--muted); }
+.err-toast { color: #ff6b6b; cursor: pointer; }
+
 /* ============ 手机(竖屏)============ */
 @media (max-width: 860px) {
   .app { padding: 6px 7px 12px; }
@@ -160,7 +191,7 @@ button:disabled { cursor: not-allowed; opacity: 0.4; }
   /* 玩家:移到棋盘上方,横向滚动的紧凑条 */
   .sidebar { order: -1; gap: 6px; }
   .players { display: flex; overflow-x: auto; gap: 6px; padding-bottom: 2px; }
-  .player-panel { min-width: 124px; flex: 0 0 auto; padding: 5px 7px; }
+  .player-panel { min-width: 170px; flex: 0 0 auto; padding: 5px 7px; }
   .player-panel .row-label { display: none; }       /* 省竖向空间:去标签 */
   .player-panel .reserved-row { display: none; }     /* 预订区在面板里隐藏 */
   .player-panel .token-row { margin-top: 3px; }
