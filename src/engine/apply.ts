@@ -1,100 +1,77 @@
-// 纯函数 reducer：applyAction(state, action) -> 新 GameState（不修改入参）。
+// 纯函数 reducer:applyAction(state, action) -> 新 GameState(不改入参)。
 import {
   HAND_LIMIT,
   MAX_RESERVED,
   TAKE_TWO_MIN_PILE,
   WIN_THRESHOLD,
-  ENERGY_ORDER,
+  ALL_PILES,
   PAYABLE_ORDER,
   type Action,
-  type Badge,
   type BuyAction,
   type Card,
+  type EvolveAction,
   type GameState,
+  type PileKey,
   type PlayerState,
-  type Tier,
+  type Stage,
 } from './types';
-import { computePayment, resolveBuyCost } from './buy';
+import { computePayment } from './buy';
 import { refreshPlayerDerived } from './derive';
-import { totalTokens } from './util';
+import { legalEvolutions } from './moves';
+import { colorVectorMeets, totalTokens } from './util';
 
-// 僵局安全网：连续这么多个人回合无人购买/认领徽章 → 按当前名望判定结束。
-// 仅在病态对局（如随机策略 + 小数据集、卡牌耗尽）触发；正常对弈每回合都在购买，永不触顶。
 const STALEMATE_LIMIT = 100;
 
 function clone(state: GameState): GameState {
   return structuredClone(state);
 }
 
-function opponents(state: GameState, idx: number): PlayerState[] {
-  return state.players.filter((_, i) => i !== idx);
-}
-
-function findBoardCard(
-  state: GameState,
-  cardId: string,
-): { tier: Tier; slot: number; card: Card } | null {
-  for (const tier of [1, 2, 3] as Tier[]) {
-    const slot = state.decks[tier].faceUp.findIndex((c) => c?.id === cardId);
-    if (slot >= 0) return { tier, slot, card: state.decks[tier].faceUp[slot]! };
+function findFaceUp(state: GameState, cardId: string): { pile: PileKey; slot: number; card: Card } | null {
+  for (const pile of ALL_PILES) {
+    const slot = state.decks[pile].faceUp.findIndex((c) => c?.id === cardId);
+    if (slot >= 0) return { pile, slot, card: state.decks[pile].faceUp[slot]! };
   }
   return null;
 }
 
-function refillBoard(state: GameState, tier: Tier, slot: number): void {
-  state.decks[tier].faceUp[slot] = state.decks[tier].drawPile.shift() ?? null;
-}
-
-/** 自动认领徽章：满足要求者中按 id 字典序取 1（每回合至多 1）。 */
-function awardBadge(state: GameState, me: PlayerState): Badge | null {
-  const satisfied = state.badges
-    .filter((b) =>
-      ENERGY_ORDER.every((e) => me.bonuses[e] >= (b.requirement[e] ?? 0)),
-    )
-    .sort((a, b) => a.id.localeCompare(b.id));
-  if (satisfied.length === 0) return null;
-  const badge = satisfied[0];
-  state.badges = state.badges.filter((b) => b.id !== badge.id);
-  me.badges.push(badge);
-  return badge;
+function refill(state: GameState, pile: PileKey, slot: number): void {
+  state.decks[pile].faceUp[slot] = state.decks[pile].drawPile.shift() ?? null;
 }
 
 function finishGame(state: GameState, stalemate = false): void {
   state.isGameOver = true;
-  if (stalemate) {
-    state.log.push(`僵局：连续 ${STALEMATE_LIMIT} 回合无人推进，按当前名望判定。`);
-  }
-  const maxP = Math.max(...state.players.map((p) => p.prestige));
-  const contenders = state.players.filter((p) => p.prestige === maxP);
-  // tiebreak：购买卡最少；仍平则共享。
-  const minCards = Math.min(...contenders.map((p) => p.purchased.length));
-  const winners = contenders.filter((p) => p.purchased.length === minCards);
+  if (stalemate) state.log.push(`僵局:连续 ${STALEMATE_LIMIT} 回合无人推进,按当前分数判定。`);
+  const maxP = Math.max(...state.players.map((p) => p.points));
+  let contenders = state.players.filter((p) => p.points === maxP);
+  // tiebreak:先比已进化数量,再比拥有宝可梦总数
+  const maxEvo = Math.max(...contenders.map((p) => p.evolved.length));
+  contenders = contenders.filter((p) => p.evolved.length === maxEvo);
+  const maxOwned = Math.max(...contenders.map((p) => p.purchased.length + p.evolved.length));
+  const winners = contenders.filter((p) => p.purchased.length + p.evolved.length === maxOwned);
   state.winnerId = winners[0].id;
-  if (winners.length > 1) {
-    state.log.push(`平局共享胜利：${winners.map((w) => w.name).join('、')}（${maxP} 名望）`);
-  } else {
-    state.log.push(`${winners[0].name} 获胜！（${maxP} 名望）`);
-  }
+  state.log.push(
+    winners.length > 1
+      ? `平局共享胜利:${winners.map((w) => w.name).join('、')}(${maxP} 分)`
+      : `${winners[0].name} 获胜!(${maxP} 分)`,
+  );
 }
 
 function advanceTurn(state: GameState): void {
+  state.awaitingEvolve = false;
   const n = state.players.length;
-  // 记忆首位达 15 者（UI 显示「最终回合」）。
   if (state.endTriggeredByPlayerIndex === null) {
-    const reacher = state.players.findIndex((p) => p.prestige >= WIN_THRESHOLD);
+    const reacher = state.players.findIndex((p) => p.points >= WIN_THRESHOLD);
     if (reacher >= 0) {
       state.endTriggeredByPlayerIndex = reacher;
-      state.log.push(`${state.players[reacher].name} 达到 ${WIN_THRESHOLD} 名望，进入最终回合！`);
+      state.log.push(`${state.players[reacher].name} 达到 ${WIN_THRESHOLD} 分,进入最终回合!`);
     }
   }
   const next = (state.currentPlayerIndex + 1) % n;
   state.turnNumber += 1;
-  // 回合边界（回到起始玩家）= 一整轮结束，所有人回合数相等 → 检查终局。
-  if (next === state.roundStartIndex && state.players.some((p) => p.prestige >= WIN_THRESHOLD)) {
+  if (next === state.roundStartIndex && state.players.some((p) => p.points >= WIN_THRESHOLD)) {
     finishGame(state);
     return;
   }
-  // 僵局安全网（病态对局防死循环）。
   if (state.turnNumber - state.lastProgressTurn > STALEMATE_LIMIT) {
     finishGame(state, true);
     return;
@@ -102,86 +79,83 @@ function advanceTurn(state: GameState): void {
   state.currentPlayerIndex = next;
 }
 
-// ----------------------------- 各动作 ----------------------------------------
+/** 主动作后:若有合法进化则进入进化子阶段,否则结束回合。 */
+function enterEvolveOrAdvance(state: GameState): void {
+  const me = state.players[state.currentPlayerIndex];
+  if (legalEvolutions(state, me).length > 0) state.awaitingEvolve = true;
+  else advanceTurn(state);
+}
 
-function applyTakeThree(state: GameState, me: PlayerState, energies: readonly string[]): void {
-  const set = new Set(energies);
-  if (set.size !== energies.length) throw new Error('取不同色：颜色须互异');
-  if (energies.length < 1 || energies.length > 3) {
-    throw new Error(`取不同色：应取 1~3 种，收到 ${energies.length}`);
-  }
-  for (const e of energies as (keyof typeof state.tokenPool)[]) {
-    if (state.tokenPool[e] <= 0) throw new Error(`供给区无 ${String(e)}`);
-    state.tokenPool[e] -= 1;
-    me.tokens[e] += 1;
+// ----------------------------- 动作 ----------------------------------------
+
+function applyTakeThree(state: GameState, me: PlayerState, colors: readonly string[]): void {
+  if (new Set(colors).size !== colors.length) throw new Error('取不同色:颜色须互异');
+  if (colors.length < 1 || colors.length > 3) throw new Error(`取不同色:应取 1~3 种,收到 ${colors.length}`);
+  for (const c of colors as (keyof typeof state.tokenPool)[]) {
+    if (c === 'master') throw new Error('不可直接取大师球');
+    if (state.tokenPool[c] <= 0) throw new Error(`供给区无 ${String(c)}`);
+    state.tokenPool[c] -= 1;
+    me.tokens[c] += 1;
   }
 }
 
-function applyTakeTwo(state: GameState, me: PlayerState, energy: keyof typeof state.tokenPool): void {
-  if (state.tokenPool[energy] < TAKE_TWO_MIN_PILE) {
-    throw new Error(`TAKE_TWO 要求该堆 ≥${TAKE_TWO_MIN_PILE}`);
-  }
-  state.tokenPool[energy] -= 2;
-  me.tokens[energy] += 2;
+function applyTakeTwo(state: GameState, me: PlayerState, color: keyof typeof state.tokenPool): void {
+  if (color === 'master') throw new Error('不可直接取大师球');
+  if (state.tokenPool[color] < TAKE_TWO_MIN_PILE) throw new Error(`取 2 同色要求该堆 ≥${TAKE_TWO_MIN_PILE}`);
+  state.tokenPool[color] -= 2;
+  me.tokens[color] += 2;
 }
 
 function applyReserve(state: GameState, me: PlayerState, action: Extract<Action, { type: 'RESERVE' }>): void {
-  if (me.reserved.length >= MAX_RESERVED) throw new Error('预定区已满（3）');
+  if (me.reserved.length >= MAX_RESERVED) throw new Error('预订区已满(3)');
   let card: Card;
   if (action.source.kind === 'board') {
-    const found = findBoardCard(state, action.source.cardId);
-    if (!found) throw new Error('预定目标不在场上');
+    const found = findFaceUp(state, action.source.cardId);
+    if (!found) throw new Error('预订目标不在展示区');
+    if (found.card.kind !== 'normal') throw new Error('稀有/传说卡不可预订');
     card = found.card;
-    refillBoard(state, found.tier, found.slot);
+    refill(state, found.pile, found.slot);
   } else {
-    const deck = state.decks[action.source.tier];
-    if (deck.drawPile.length === 0) throw new Error('该层牌库已空，无法盲抽预定');
+    const pile = action.source.pile as Stage;
+    if (pile !== 1 && pile !== 2 && pile !== 3) throw new Error('只能盲抽普通阶');
+    const deck = state.decks[pile];
+    if (deck.drawPile.length === 0) throw new Error('该层牌库已空');
     card = deck.drawPile.shift()!;
   }
   me.reserved.push(card);
-  if (state.tokenPool.rainbow > 0) {
-    state.tokenPool.rainbow -= 1;
-    me.tokens.rainbow += 1;
+  if (state.tokenPool.master > 0) {
+    state.tokenPool.master -= 1;
+    me.tokens.master += 1;
   }
 }
 
-function applyBuy(state: GameState, idx: number, me: PlayerState, action: BuyAction): void {
-  // 定位卡
+function applyBuy(state: GameState, me: PlayerState, action: BuyAction): void {
   let card: Card;
-  let fromBoard: { tier: Tier; slot: number } | null = null;
+  let from: { pile: PileKey; slot: number } | null = null;
   if (action.source.kind === 'board') {
-    const found = findBoardCard(state, action.source.cardId);
-    if (!found) throw new Error('购买目标不在场上');
+    const found = findFaceUp(state, action.source.cardId);
+    if (!found) throw new Error('购买目标不在展示区');
     card = found.card;
-    fromBoard = { tier: found.tier, slot: found.slot };
+    from = { pile: found.pile, slot: found.slot };
   } else {
     const i = me.reserved.findIndex((c) => c.id === action.source.cardId);
-    if (i < 0) throw new Error('购买目标不在预定区');
+    if (i < 0) throw new Error('购买目标不在预订区');
     card = me.reserved[i];
     me.reserved.splice(i, 1);
   }
 
-  // 重算规范结算与支付（以引擎为准，不盲信 action.payment）。
-  const resolution = resolveBuyCost(me, card, state.config, opponents(state, idx));
-  const pay = computePayment(me, resolution.finalCost);
+  const pay = computePayment(me, card);
   if (!pay) throw new Error(`${me.name} 无法负担 ${card.nameZh}`);
-
   for (const t of PAYABLE_ORDER) {
     me.tokens[t] -= pay.payment[t];
     state.tokenPool[t] += pay.payment[t];
   }
 
-  if (fromBoard) refillBoard(state, fromBoard.tier, fromBoard.slot);
+  if (from) refill(state, from.pile, from.slot);
   me.purchased.push(card);
-  refreshPlayerDerived(me, state.config);
-  state.lastProgressTurn = state.turnNumber; // 购买 = 推进，重置僵局计数
-
-  const badge = awardBadge(state, me);
-  if (badge) refreshPlayerDerived(me, state.config);
-
-  state.log.push(
-    `${me.name} 捕捉 ${card.nameZh}（${card.prestige}分${resolution.totalDiscount ? `，进化折扣-${resolution.totalDiscount}` : ''}）${badge ? `，获得${badge.nameZh}` : ''}`,
-  );
+  refreshPlayerDerived(me);
+  state.lastProgressTurn = state.turnNumber;
+  state.log.push(`${me.name} 捕捉 ${card.nameZh}(${card.points}分${pay.resolution.masterSpent ? `,大师球-${pay.resolution.masterSpent}` : ''})`);
 }
 
 function applyDiscard(state: GameState, me: PlayerState, action: Extract<Action, { type: 'DISCARD' }>): void {
@@ -189,13 +163,46 @@ function applyDiscard(state: GameState, me: PlayerState, action: Extract<Action,
   const excess = totalTokens(me.tokens) - HAND_LIMIT;
   let sum = 0;
   for (const t of PAYABLE_ORDER) sum += action.tokens[t];
-  if (sum !== excess) throw new Error(`需弃 ${excess} 个，收到 ${sum}`);
+  if (sum !== excess) throw new Error(`需弃 ${excess} 个,收到 ${sum}`);
   for (const t of PAYABLE_ORDER) {
-    if (action.tokens[t] > me.tokens[t]) throw new Error(`弃牌超出持有：${t}`);
+    if (action.tokens[t] > me.tokens[t]) throw new Error(`弃牌超出持有:${t}`);
     me.tokens[t] -= action.tokens[t];
     state.tokenPool[t] += action.tokens[t];
   }
   state.awaitingDiscard = false;
+}
+
+function applyEvolve(state: GameState, me: PlayerState, action: EvolveAction): void {
+  const x = me.purchased.find((c) => c.id === action.fromCardId);
+  if (!x) throw new Error('进化来源不在你的桌面');
+  if (x.kind !== 'normal' || x.stage >= 3 || !x.evolveCost || !x.evolvesToSpeciesId) throw new Error('该卡不可进化');
+  if (!colorVectorMeets(me.bonuses, x.evolveCost)) throw new Error('永久加成不满足进化需求');
+
+  // 定位目标(展示区或预订区)
+  let target: Card | null = null;
+  let from: { pile: PileKey; slot: number } | null = null;
+  const found = findFaceUp(state, action.toCardId);
+  if (found) {
+    target = found.card;
+    from = { pile: found.pile, slot: found.slot };
+  } else if (state.config.evolveFromReserved) {
+    const i = me.reserved.findIndex((c) => c.id === action.toCardId);
+    if (i >= 0) {
+      target = me.reserved[i];
+      me.reserved.splice(i, 1);
+    }
+  }
+  if (!target) throw new Error('进化目标不可用');
+  if (target.kind !== 'normal' || target.speciesId !== x.evolvesToSpeciesId) throw new Error('进化目标物种不符');
+
+  // 低阶卡面朝下入训练师板;高阶卡入桌面
+  me.purchased.splice(me.purchased.indexOf(x), 1);
+  me.evolved.push(x);
+  if (from) refill(state, from.pile, from.slot);
+  me.purchased.push(target);
+  refreshPlayerDerived(me);
+  state.lastProgressTurn = state.turnNumber;
+  state.log.push(`${me.name} 进化 ${x.nameZh} → ${target.nameZh}(免费)`);
 }
 
 // ----------------------------- 入口 ------------------------------------------
@@ -203,47 +210,44 @@ function applyDiscard(state: GameState, me: PlayerState, action: Extract<Action,
 export function applyAction(prev: GameState, action: Action): GameState {
   if (prev.isGameOver) throw new Error('对局已结束');
   const state = clone(prev);
-  const idx = state.currentPlayerIndex;
-  const me = state.players[idx];
+  const me = state.players[state.currentPlayerIndex];
 
-  if (state.awaitingDiscard && action.type !== 'DISCARD') {
-    throw new Error('需先弃牌至 10');
+  if (state.awaitingDiscard && action.type !== 'DISCARD') throw new Error('需先弃牌至 10');
+  if (state.awaitingEvolve && action.type !== 'EVOLVE' && action.type !== 'END_TURN') {
+    throw new Error('回合末:只能进化或结束回合');
+  }
+  if ((action.type === 'EVOLVE' || action.type === 'END_TURN') && !state.awaitingEvolve) {
+    throw new Error('当前不在回合末进化阶段');
   }
 
   switch (action.type) {
-    case 'TAKE_THREE':
-      applyTakeThree(state, me, action.energies);
-      break;
-    case 'TAKE_TWO':
-      applyTakeTwo(state, me, action.energy);
-      break;
-    case 'RESERVE':
-      applyReserve(state, me, action);
-      break;
-    case 'BUY':
-      applyBuy(state, idx, me, action);
-      break;
-    case 'DISCARD':
-      applyDiscard(state, me, action);
-      break;
+    case 'TAKE_THREE': applyTakeThree(state, me, action.colors); break;
+    case 'TAKE_TWO': applyTakeTwo(state, me, action.color); break;
+    case 'RESERVE': applyReserve(state, me, action); break;
+    case 'BUY': applyBuy(state, me, action); break;
+    case 'DISCARD': applyDiscard(state, me, action); break;
+    case 'EVOLVE': applyEvolve(state, me, action); break;
+    case 'END_TURN': break;
   }
 
   if (action.type === 'DISCARD') {
+    enterEvolveOrAdvance(state);
+  } else if (action.type === 'EVOLVE' || action.type === 'END_TURN') {
     advanceTurn(state);
   } else if (totalTokens(me.tokens) > HAND_LIMIT) {
-    state.awaitingDiscard = true; // 等待弃牌，不结束回合
+    state.awaitingDiscard = true;
   } else {
-    advanceTurn(state);
+    enterEvolveOrAdvance(state);
   }
 
   return state;
 }
 
-/** 安全网：当前玩家无任何合法动作时跳过其回合（极罕见，近终局）。 */
+/** 安全网:当前玩家无任何合法动作时跳过回合(极罕见)。 */
 export function passTurn(prev: GameState): GameState {
   if (prev.isGameOver) return prev;
   const state = clone(prev);
-  state.log.push(`${state.players[state.currentPlayerIndex].name} 无合法动作，跳过`);
+  state.log.push(`${state.players[state.currentPlayerIndex].name} 无合法动作,跳过`);
   advanceTurn(state);
   return state;
 }

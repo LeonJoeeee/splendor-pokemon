@@ -2,35 +2,23 @@
 export * from './types';
 export { makeRng, shuffleInPlace, type Rng } from './rng';
 export {
-  emptyVector,
+  emptyColorVector,
   emptyPool,
-  costToVector,
-  vectorToCost,
+  colorCostToVector,
+  vectorToColorCost,
   totalTokens,
-  totalEnergyTokens,
   sumCost,
-  maxNeedColor,
+  colorVectorMeets,
+  clonePool,
 } from './util';
 export {
   computeBonuses,
   computeOwnedSpecies,
-  computePrestige,
+  computePoints,
   refreshPlayerDerived,
 } from './derive';
-export {
-  hasEvolutionPrereq,
-  dominantType,
-  resolveBuyCost,
-  computePayment,
-  canAfford,
-  buildBuyAction,
-} from './buy';
-export {
-  createGame,
-  DEFAULT_CONFIG,
-  type NewGameOptions,
-  type PlayerSeed,
-} from './setup';
-export { legalMoves, canonicalDiscard, hasNoMoves } from './moves';
+export { resolveBuyCost, computePayment, canAfford, buildBuyAction } from './buy';
+export { createGame, DEFAULT_CONFIG, type NewGameOptions, type PlayerSeed } from './setup';
+export { legalMoves, legalEvolutions, canonicalDiscard, hasNoMoves } from './moves';
 export { applyAction, passTurn } from './apply';
 export { validateDeck } from './validate';

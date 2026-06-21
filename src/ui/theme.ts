@@ -1,24 +1,28 @@
-// UI 主题：能量类型的显示元数据。
-import { ENERGY_ORDER, type EnergyType, type PayableToken } from '../engine/types';
+// UI 主题:宝可梦球颜色显示元数据 + 官方插画地址。
+import { COLOR_ORDER, type Color, type PayableToken } from '../engine/types';
 
-export interface EnergyMeta {
+export interface BallMeta {
   hex: string;
-  zh: string;
-  icon: string;
+  zh: string; // 球名(颜色解耦:球名↔颜色待用户对实体卡确认,暂用颜色名)
+  dark: boolean; // 文字是否用深色
 }
 
-export const ENERGY_META: Record<PayableToken, EnergyMeta> = {
-  grass: { hex: '#4FA85B', zh: '草', icon: '🌿' },
-  fire: { hex: '#E8463A', zh: '火', icon: '🔥' },
-  water: { hex: '#3D9BE9', zh: '水', icon: '💧' },
-  electric: { hex: '#F2C94C', zh: '电', icon: '⚡' },
-  psychic: { hex: '#A56FB5', zh: '超', icon: '🔮' },
-  rainbow: { hex: '#C9C9CF', zh: '彩', icon: '🌈' },
+export const BALL_META: Record<PayableToken, BallMeta> = {
+  red: { hex: '#E3350D', zh: '红球', dark: false },
+  blue: { hex: '#2E72D2', zh: '蓝球', dark: false },
+  black: { hex: '#4a5160', zh: '黑球', dark: false },
+  pink: { hex: '#E86A9A', zh: '粉球', dark: false },
+  yellow: { hex: '#F2C94C', zh: '黄球', dark: true },
+  master: { hex: '#7B3FA0', zh: '大师球', dark: false },
 };
 
-export const ENERGIES: readonly EnergyType[] = ENERGY_ORDER;
+export const COLORS: readonly Color[] = COLOR_ORDER;
 
-/** 深色文字 or 浅色文字（电/彩用深色更清晰）。 */
-export function textOn(token: PayableToken): string {
-  return token === 'electric' || token === 'rainbow' ? '#1a1a1a' : '#ffffff';
+export function textOn(t: PayableToken): string {
+  return BALL_META[t].dark ? '#1a1a1a' : '#ffffff';
+}
+
+/** PokéAPI 官方插画(运行时拉取,不打包进仓库)。 */
+export function pokeArt(dexId: number): string {
+  return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${dexId}.png`;
 }

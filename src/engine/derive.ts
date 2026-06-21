@@ -1,16 +1,11 @@
-// 玩家派生缓存：bonus 向量、已拥物种、名望。引擎在购买/认领后调用刷新。
-import { BADGE_PRESTIGE, type Card, type EnergyVector, type GameConfig, type PlayerState } from './types';
-import { emptyVector } from './util';
+// 玩家派生缓存：bonus 向量(含稀有/传说 ×2)、已拥物种、分数。购买/进化后调用。
+import type { Card, ColorVector, PlayerState } from './types';
+import { emptyColorVector } from './util';
 
-/** 各色永久 bonus；启用招牌特性时 extraBonus 卡其 energy 额外计 amount。 */
-export function computeBonuses(purchased: Card[], config: GameConfig): EnergyVector {
-  const v = emptyVector();
-  for (const card of purchased) {
-    v[card.bonus] += 1;
-    if (config.enableSignatureAbility && card.ability?.type === 'extraBonus') {
-      v[card.ability.energy] += card.ability.amount;
-    }
-  }
+/** 各色永久加成；每张卡按 bonusAmount(普通 1 / 稀有传说 2)累加到其 bonus 色。 */
+export function computeBonuses(purchased: Card[]): ColorVector {
+  const v = emptyColorVector();
+  for (const card of purchased) v[card.bonus] += card.bonusAmount;
   return v;
 }
 
@@ -20,16 +15,15 @@ export function computeOwnedSpecies(purchased: Card[]): Set<string> {
   return s;
 }
 
-export function computePrestige(player: Pick<PlayerState, 'purchased' | 'badges'>): number {
+export function computePoints(purchased: Card[]): number {
   let p = 0;
-  for (const card of player.purchased) p += card.prestige;
-  p += player.badges.length * BADGE_PRESTIGE;
+  for (const card of purchased) p += card.points;
   return p;
 }
 
-/** 原地刷新玩家的所有派生字段。 */
-export function refreshPlayerDerived(player: PlayerState, config: GameConfig): void {
-  player.bonuses = computeBonuses(player.purchased, config);
+/** 原地刷新玩家派生字段。 */
+export function refreshPlayerDerived(player: PlayerState): void {
+  player.bonuses = computeBonuses(player.purchased);
   player.ownedSpecies = computeOwnedSpecies(player.purchased);
-  player.prestige = computePrestige(player);
+  player.points = computePoints(player.purchased);
 }
