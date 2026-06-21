@@ -317,3 +317,17 @@ body {
 .evo-can-tag { background: rgba(10, 132, 255, 0.18); color: #7fc0ff; }
 .evo-need-tag { background: rgba(255, 255, 255, 0.07); }
 .winner-banner, .turn-info b { color: var(--accent); }
+
+/* Apple 微调 r3:手机紧凑(降低整页高度,信息仍在) */
+@media (max-width: 860px) {
+  .card-art { height: 66px; } .card-art img { max-height: 66px; }
+  .card { min-height: 150px; }
+  .card.empty { min-height: 150px; }
+  .combo-head { display: none; }                 /* 手机省一行:列头去掉 */
+  .combo-cell { padding: 1px 6px; gap: 5px; }
+  .combo-power { font-size: 12px; }
+  .combo-hand, .combo-bonus { font-size: 11px; }
+  .player-panel { min-width: 156px; }
+  .owned-chips { max-height: 64px; }
+  .row-label { font-size: 9px; margin: 3px 0 1px; }
+}
