@@ -305,3 +305,15 @@ body {
 *::-webkit-scrollbar { width: 8px; height: 8px; }
 *::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.16); border-radius: 8px; }
 *::-webkit-scrollbar-track { background: transparent; }
+
+/* Apple 微调 r2:稀有/传说卡与标签融入毛玻璃 */
+.card.special.rare { background: linear-gradient(180deg, rgba(255, 214, 10, 0.12), var(--panel)); }
+.card.special.legendary { background: linear-gradient(180deg, rgba(191, 90, 242, 0.14), var(--panel)); }
+.special-cell.rare { border-top-color: rgba(255, 214, 10, 0.55); }
+.special-cell.legendary { border-top-color: rgba(191, 90, 242, 0.6); }
+.tag { background: rgba(255, 255, 255, 0.08); border-radius: 6px; color: var(--muted); }
+.rare-tag { background: rgba(255, 214, 10, 0.16); color: #ffe066; }
+.legendary-tag { background: rgba(191, 90, 242, 0.18); color: #e0b3ff; }
+.evo-can-tag { background: rgba(10, 132, 255, 0.18); color: #7fc0ff; }
+.evo-need-tag { background: rgba(255, 255, 255, 0.07); }
+.winner-banner, .turn-info b { color: var(--accent); }
