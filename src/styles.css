@@ -40,8 +40,11 @@ button:disabled { cursor: not-allowed; opacity: 0.4; }
 .deck-count { font-size: 10px; color: var(--muted); }
 .cards-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; flex: 1; }
 
-/* 传说/稀有:并排两格,各 1 张 */
-.special-section { display: flex; gap: 10px; }
+/* 底部一行:左=传说/稀有(窄,竖排) 右=供给区 */
+.bottom-row { display: flex; gap: 8px; align-items: stretch; }
+.bottom-row .bank-section { flex: 1; }
+/* 传说/稀有:竖排两格放左侧,窄 */
+.special-section { display: flex; flex-direction: column; gap: 8px; flex: 0 0 218px; }
 .special-cell { flex: 1; display: flex; gap: 8px; align-items: stretch; background: var(--panel); border: 1px solid var(--line); border-radius: 9px; padding: 6px; }
 .special-cell.rare { border-left: 4px solid #b8902f; }
 .special-cell.legendary { border-left: 4px solid #9a4fd0; }
@@ -50,16 +53,16 @@ button:disabled { cursor: not-allowed; opacity: 0.4; }
 .special-cell .card { flex: 0 0 132px; max-width: 132px; }
 
 /* 卡牌 */
-.card { background: var(--panel2); border: 1px solid var(--line); border-top: 3px solid var(--line); border-radius: 9px; padding: 5px; min-height: 168px; display: flex; flex-direction: column; gap: 2px; position: relative; }
+.card { background: var(--panel2); border: 1px solid var(--line); border-top: 3px solid var(--line); border-radius: 9px; padding: 5px; min-height: 196px; display: flex; flex-direction: column; gap: 2px; position: relative; }
 .card.affordable { box-shadow: 0 0 0 2px var(--good), 0 3px 12px rgba(70,196,106,0.22); }
-.card.empty { align-items: center; justify-content: center; color: var(--muted); border-style: dashed; min-height: 168px; }
+.card.empty { align-items: center; justify-content: center; color: var(--muted); border-style: dashed; min-height: 196px; }
 .card.special.rare { background: linear-gradient(180deg, #2c2613, var(--panel2)); }
 .card.special.legendary { background: linear-gradient(180deg, #2e1740, var(--panel2)); }
 .card-head { display: flex; justify-content: space-between; align-items: center; position: absolute; top: 5px; left: 6px; right: 6px; z-index: 2; }
 .card-points { font-size: 18px; font-weight: 800; color: var(--accent); text-shadow: 0 1px 3px #000, 0 0 4px #000; min-height: 20px; }
 .card-bonus { min-width: 20px; height: 20px; padding: 0 5px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; box-shadow: 0 1px 3px rgba(0,0,0,0.5); }
-.card-art { height: 82px; display: flex; align-items: center; justify-content: center; margin-top: 1px; }
-.card-art img { max-height: 82px; max-width: 100%; object-fit: contain; filter: drop-shadow(0 2px 3px rgba(0,0,0,0.4)); }
+.card-art { height: 104px; display: flex; align-items: center; justify-content: center; margin-top: 1px; }
+.card-art img { max-height: 104px; max-width: 100%; object-fit: contain; filter: drop-shadow(0 2px 3px rgba(0,0,0,0.4)); }
 .card-name { font-size: 12px; font-weight: 700; line-height: 1.05; }
 .card-name-en { display: block; font-size: 8px; color: var(--muted); font-weight: 400; }
 .card-tags { display: flex; flex-wrap: wrap; gap: 3px; align-items: center; }
@@ -106,7 +109,7 @@ button:disabled { cursor: not-allowed; opacity: 0.4; }
 
 /* 侧栏 */
 .sidebar { display: flex; flex-direction: column; gap: 8px; }
-.players { display: flex; flex-direction: column; gap: 8px; }
+.players { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .player-panel { background: var(--panel); border: 1px solid var(--line); border-radius: 9px; padding: 7px 9px; position: relative; }
 .owned-pop { display: none; position: absolute; top: 100%; left: 0; right: 0; z-index: 30; margin-top: 4px; background: #0e1422; border: 1px solid var(--accent2); border-radius: 8px; padding: 7px 9px; box-shadow: 0 8px 24px rgba(0,0,0,0.55); }
 .player-panel:hover .owned-pop { display: block; }
@@ -208,10 +211,12 @@ button:disabled { cursor: not-allowed; opacity: 0.4; }
   .deck-label { font-size: 12px; }
   .deck-pile .deck-count, .deck-pile .btn.tiny { display: none; }
   .cards-row { gap: 4px; }
-  .card { min-height: 138px; padding: 4px; gap: 1px; }
-  .card.empty { min-height: 138px; }
-  .card-art { height: 58px; }
-  .card-art img { max-height: 58px; }
+  .bottom-row { flex-direction: column; }
+  .special-section { flex: none; }
+  .card { min-height: 172px; padding: 4px; gap: 1px; }
+  .card.empty { min-height: 172px; }
+  .card-art { height: 80px; }
+  .card-art img { max-height: 80px; }
   .card-name { font-size: 10px; }
   .card-name-en { display: none; }
   .card-points { font-size: 14px; min-height: 16px; }

@@ -164,11 +164,11 @@ export function GameTable({ game, youIndex, dispatch }: { game: GameState; youIn
       <div className="layout">
         <main className="board">
           {TIER_ROWS.map((t) => renderRow(t, `T${t}`, true))}
+          <div className="bottom-row">
           <section className="special-section">
             {renderSpecial('legendary', '传说')}
             {renderSpecial('rare', '稀有')}
           </section>
-
           <section className="bank-section">
             {humanEvolving ? (
               <div className="evolve-panel">
@@ -210,6 +210,7 @@ export function GameTable({ game, youIndex, dispatch }: { game: GameState; youIn
               </>
             )}
           </section>
+          </div>
         </main>
 
         <aside className="sidebar">
