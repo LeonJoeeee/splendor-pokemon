@@ -15,7 +15,7 @@ export function PlayerPanel({ player, isCurrent }: Props) {
         <span className="player-points" title="分数">🏆 {player.points}</span>
       </div>
 
-      <div className="row-label">球 {totalTokens(player.tokens)}/10　(购买力=手牌+折扣)</div>
+      <div className="row-label">宝可梦球 {totalTokens(player.tokens)}/10</div>
       <div className="combo-row">
         <div className="combo-head"><span /><span>购买力</span><span>手牌</span><span>折扣</span></div>
         {COLOR_ORDER.map((c) => {

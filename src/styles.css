@@ -331,3 +331,15 @@ body {
   .owned-chips { max-height: 64px; }
   .row-label { font-size: 9px; margin: 3px 0 1px; }
 }
+
+/* Apple 微调 r4:桌面收进一屏 + 底部带平衡(仅桌面,不动手机) */
+.app { padding: 6px 12px 10px; }
+@media (min-width: 861px) {
+  .card-art { height: 88px; } .card-art img { max-height: 88px; }
+  .card { min-height: 176px; } .card.empty { min-height: 176px; }
+  .board { gap: 5px; }
+  .special-cell { width: 168px; }            /* 传说/稀有更宽,不挤 */
+  .special-cell .card { min-height: 150px; }
+  .bank-section { display: flex; flex-direction: column; justify-content: center; }
+  .bank-tokens { justify-content: space-around; width: 100%; }  /* 球横向铺满右侧 */
+}
