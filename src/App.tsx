@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { applyAction, createGame, legalMoves, type Action, type GameState } from './engine';
 import { makeRng } from './engine/rng';
-import { greedyPolicy } from './ai/policies';
+import { heuristicPolicy } from './ai/heuristic';
+
+const AI_POLICY = heuristicPolicy();
 import { CARDS } from './data/cards';
 import { GameTable } from './ui/GameTable';
 import { useOnlineGame } from './net/useOnlineGame';
@@ -49,7 +51,7 @@ function LocalGame({ onExit }: { onExit: () => void }) {
         const moves = legalMoves(g);
         if (moves.length === 0) return g;
         const rng = makeRng((g.turnNumber * 2654435761 + g.rngSeed) >>> 0);
-        return applyAction(g, greedyPolicy(moves, g, rng));
+        return applyAction(g, AI_POLICY(moves, g, rng));
       });
     }, game.awaitingDiscard || game.awaitingEvolve ? 350 : 600);
     return () => { if (aiTimer.current !== null) window.clearTimeout(aiTimer.current); };

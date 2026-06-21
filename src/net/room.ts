@@ -1,7 +1,9 @@
 // 单桌房间逻辑(权威):座位/大厅/开局/动作/AI 与掉线代打。无 WebSocket 依赖,可单测。
 import { applyAction, createGame, legalMoves, type Action, type GameState } from '../engine';
 import { makeRng } from '../engine/rng';
-import { greedyPolicy } from '../ai/policies';
+import { heuristicPolicy } from '../ai/heuristic';
+
+const AI = heuristicPolicy();
 import { CARDS } from '../data/cards';
 import { serializeState } from './serialize';
 import { MAX_SEATS, type SeatInfo, type SeatKind, type ServerMsg } from './protocol';
@@ -109,7 +111,7 @@ export class Room {
     const moves = legalMoves(this.game);
     if (moves.length === 0) return false;
     const rng = makeRng(((this.game.turnNumber * 2654435761) ^ this.game.rngSeed) >>> 0);
-    this.game = applyAction(this.game, greedyPolicy(moves, this.game, rng));
+    this.game = applyAction(this.game, AI(moves, this.game, rng));
     return true;
   }
 
