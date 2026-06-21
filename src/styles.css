@@ -40,17 +40,16 @@ button:disabled { cursor: not-allowed; opacity: 0.4; }
 .deck-count { font-size: 10px; color: var(--muted); }
 .cards-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; flex: 1; }
 
-/* 底部一行:左=传说/稀有(窄,竖排) 右=供给区 */
+/* 底部一行:左=传说/稀有(两个窄格并排) 右=供给区(填满高度) */
 .bottom-row { display: flex; gap: 8px; align-items: stretch; }
 .bottom-row .bank-section { flex: 1; }
-/* 传说/稀有:竖排两格放左侧,窄 */
-.special-section { display: flex; flex-direction: column; gap: 8px; flex: 0 0 218px; }
-.special-cell { flex: 1; display: flex; gap: 8px; align-items: stretch; background: var(--panel); border: 1px solid var(--line); border-radius: 9px; padding: 6px; }
-.special-cell.rare { border-left: 4px solid #b8902f; }
-.special-cell.legendary { border-left: 4px solid #9a4fd0; }
-.special-head { display: flex; flex-direction: column; justify-content: center; gap: 4px; min-width: 46px; }
+.special-section { display: flex; flex-direction: row; gap: 8px; flex: 0 0 auto; }
+.special-cell { display: flex; flex-direction: column; gap: 4px; width: 122px; background: var(--panel); border: 1px solid var(--line); border-radius: 9px; padding: 6px; }
+.special-cell.rare { border-top: 3px solid #b8902f; }
+.special-cell.legendary { border-top: 3px solid #9a4fd0; }
+.special-head { display: flex; flex-direction: row; justify-content: space-between; align-items: center; }
 .special-label { font-weight: 800; font-size: 14px; }
-.special-cell .card { flex: 0 0 132px; max-width: 132px; }
+.special-cell .card { width: 100%; max-width: none; min-height: 150px; }
 
 /* 卡牌 */
 .card { background: var(--panel2); border: 1px solid var(--line); border-top: 3px solid var(--line); border-radius: 9px; padding: 5px; min-height: 196px; display: flex; flex-direction: column; gap: 2px; position: relative; }
@@ -119,7 +118,7 @@ button:disabled { cursor: not-allowed; opacity: 0.4; }
 .player-head { display: flex; justify-content: space-between; align-items: center; }
 .player-name { font-weight: 700; font-size: 13px; }
 .player-points { font-weight: 800; color: var(--accent); font-size: 13px; }
-.row-label { font-size: 10px; color: var(--muted); margin: 5px 0 2px; }
+.row-label { font-size: 10px; color: var(--muted); margin: 5px 0 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .token-row { display: flex; gap: 4px; flex-wrap: wrap; }
 .mini-token { font-size: 11px; font-weight: 700; border-radius: 4px; padding: 1px 5px; }
 .mini-bonus { font-size: 11px; font-weight: 700; border: 1.5px solid; border-radius: 4px; padding: 1px 5px; background: transparent; }

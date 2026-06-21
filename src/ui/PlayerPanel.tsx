@@ -15,7 +15,7 @@ export function PlayerPanel({ player, isCurrent }: Props) {
         <span className="player-points" title="分数">🏆 {player.points}</span>
       </div>
 
-      <div className="row-label">宝可梦球　购买力 = 手牌 + 折扣（{totalTokens(player.tokens)}/10）</div>
+      <div className="row-label">球 {totalTokens(player.tokens)}/10　(购买力=手牌+折扣)</div>
       <div className="combo-row">
         <div className="combo-head"><span /><span>购买力</span><span>手牌</span><span>折扣</span></div>
         {COLOR_ORDER.map((c) => {
@@ -37,7 +37,7 @@ export function PlayerPanel({ player, isCurrent }: Props) {
         </span>
       </div>
 
-      <div className="row-label">🏆 {player.points} 分　·　已进化 {player.evolved.length}　·　预订 {player.reserved.length}/3</div>
+      <div className="row-label">进化 {player.evolved.length}　·　预订 {player.reserved.length}/3</div>
 
       {player.purchased.length > 0 && (
         <div className="owned-pop">

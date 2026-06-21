@@ -49,9 +49,11 @@ export function CardView({ card, affordable, reservedTag, evoState, onBuy, onRes
       </div>
 
       <div className="card-cost">
-        {COLOR_ORDER.filter((c) => (card.cost[c] ?? 0) > 0).map((c) => (
-          <span key={c} className="cost-chip" style={{ background: BALL_META[c].hex, color: textOn(c) }}>{card.cost[c]}</span>
-        ))}
+        {COLOR_ORDER.filter((c) => (card.cost[c] ?? 0) > 0)
+          .sort((a, b) => (card.cost[b] ?? 0) - (card.cost[a] ?? 0))
+          .map((c) => (
+            <span key={c} className="cost-chip" style={{ background: BALL_META[c].hex, color: textOn(c) }}>{card.cost[c]}</span>
+          ))}
         {(card.cost.master ?? 0) > 0 && (
           <span className="cost-chip master" style={{ background: BALL_META.master.hex, color: '#fff' }} title="须用大师球支付">{card.cost.master}</span>
         )}
