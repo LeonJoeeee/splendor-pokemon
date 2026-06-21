@@ -238,3 +238,70 @@ button:disabled { cursor: not-allowed; opacity: 0.4; }
   .token-count { font-size: 12px; }
   .hint { display: none; }
 }
+
+/* ============================ Apple 风格主题(覆盖层) ============================ */
+:root {
+  --bg: #000307;
+  --panel: rgba(255, 255, 255, 0.055);
+  --panel2: rgba(255, 255, 255, 0.04);
+  --line: rgba(255, 255, 255, 0.10);
+  --text: #f5f5f7;
+  --muted: #9a9aa2;
+  --accent: #ffd60a;   /* 分数:宝可梦黄(Apple 黄) */
+  --accent2: #0a84ff;  /* 交互:Apple 系统蓝 */
+  --good: #30d158;     /* Apple 绿 */
+}
+body {
+  background:
+    radial-gradient(1000px 560px at 50% -16%, rgba(40, 84, 168, 0.22), transparent 70%),
+    radial-gradient(800px 500px at 85% 110%, rgba(120, 60, 170, 0.14), transparent 70%),
+    #000307;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  letter-spacing: 0.15px;
+}
+.topbar h1, .menu h1 { font-weight: 600; letter-spacing: 0.4px; }
+.section-label { letter-spacing: 1.2px; font-weight: 500; }
+
+/* 毛玻璃材质面板 */
+.turnbar, .bank-section, .player-panel, .owned-team, .reserve-area, .log,
+.special-cell, .lobby-seat, .card, .deck-pile {
+  background: var(--panel);
+  -webkit-backdrop-filter: saturate(160%) blur(22px);
+  backdrop-filter: saturate(160%) blur(22px);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.05) inset, 0 10px 34px rgba(0, 0, 0, 0.30);
+}
+.card { border-top: 1px solid var(--line); border-radius: 16px; padding: 7px; }
+.card.affordable { box-shadow: 0 0 0 2px var(--good), 0 10px 30px rgba(48, 209, 88, 0.22); }
+.card.evo-can { outline: 2px solid var(--accent2); }
+.deck-pile { border-radius: 14px; }
+
+/* 按钮:Apple 胶囊 */
+.btn { border-radius: 980px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.08); font-weight: 500; transition: background .15s ease, border-color .15s ease, transform .05s ease; }
+.btn:hover:not(:disabled) { background: rgba(255, 255, 255, 0.16); border-color: rgba(255, 255, 255, 0.24); }
+.btn:active:not(:disabled) { transform: scale(0.97); }
+.btn.primary { background: var(--accent2); border-color: transparent; color: #fff; }
+.btn.buy { background: var(--good); border-color: transparent; color: #04210e; }
+.btn.evolve-btn { background: rgba(48, 209, 88, 0.16); border-color: rgba(48, 209, 88, 0.4); color: #6ff0a0; }
+.big-btn { border-radius: 18px; padding: 17px; font-weight: 600; }
+
+/* 代币球 / 圆点:更润的高光 */
+.token-big { border: none; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45), inset 0 3px 7px rgba(255, 255, 255, 0.35), inset 0 -3px 7px rgba(0, 0, 0, 0.25); }
+.token-big.selected { outline: 3px solid var(--accent2); outline-offset: 2px; }
+.card-bonus, .cost-chip, .combo-dot, .req-chip, .mini-token { box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.3); }
+.card-points { color: var(--accent); }
+
+/* 当前玩家:Apple 蓝聚焦 */
+.player-panel.current { border-color: var(--accent2); box-shadow: 0 0 0 1px var(--accent2), 0 10px 34px rgba(10, 132, 255, 0.22); }
+.combo-cell { background: rgba(255, 255, 255, 0.04); border-color: var(--line); }
+.combo-power { color: var(--accent); }
+
+/* 输入框 */
+.seed-input, .url-input, .setup select { background: rgba(255, 255, 255, 0.06); border: 1px solid var(--line); border-radius: 10px; color: var(--text); }
+
+/* 滚动条(细) */
+*::-webkit-scrollbar { width: 8px; height: 8px; }
+*::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.16); border-radius: 8px; }
+*::-webkit-scrollbar-track { background: transparent; }
