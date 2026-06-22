@@ -1,6 +1,6 @@
 import type { Card } from '../engine';
 import { COLOR_ORDER } from '../engine/types';
-import { BALL_META, pokeArt, textOn } from './theme';
+import { BALL_META, pokeArt, pokeArtFallback, textOn } from './theme';
 
 interface Props {
   card: Card;
@@ -29,7 +29,15 @@ export function CardView({ card, affordable, reservedTag, evoState, onBuy, onRes
       </div>
 
       <div className="card-art">
-        <img src={pokeArt(card.dexId)} alt={card.name} loading="lazy" />
+        <img
+          src={pokeArt(card.dexId)}
+          alt={card.nameZh}
+          loading="lazy"
+          onError={(e) => {
+            const img = e.currentTarget;
+            if (!img.dataset.fb) { img.dataset.fb = '1'; img.src = pokeArtFallback(card.dexId); }
+          }}
+        />
       </div>
 
       <div className="card-name">{card.nameZh}</div>

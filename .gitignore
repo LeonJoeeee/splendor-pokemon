@@ -1,5 +1,7 @@
 node_modules
 dist
+public/sprites
+*.local.*
 dist-ssr
 *.local
 .DS_Store

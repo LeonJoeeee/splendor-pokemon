@@ -12,7 +12,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "sim": "tsx src/sim/selfplay.ts",
-    "server": "tsx server/index.ts"
+    "server": "tsx server/index.ts",
+    "sprites": "node scripts/fetch-sprites.mjs"
   },
   "dependencies": {
     "@types/ws": "^8.18.1",

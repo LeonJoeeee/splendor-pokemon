@@ -22,7 +22,11 @@ export function textOn(t: PayableToken): string {
   return BALL_META[t].dark ? '#1a1a1a' : '#ffffff';
 }
 
-/** PokéAPI 官方插画(运行时拉取,不打包进仓库)。 */
+/** 本地同源插画(public/sprites/,由 npm run sprites 下载;局域网/国内手机可直接看)。 */
 export function pokeArt(dexId: number): string {
-  return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${dexId}.png`;
+  return `/sprites/${dexId}.png`;
+}
+/** 本地缺图时的 CDN 兜底(jsDelivr 比 raw.githubusercontent 在国内更易访问)。 */
+export function pokeArtFallback(dexId: number): string {
+  return `https://cdn.jsdelivr.net/gh/PokeAPI/sprites@master/sprites/pokemon/other/official-artwork/${dexId}.png`;
 }
