@@ -30,6 +30,7 @@ function LocalGame({ onExit }: { onExit: () => void }) {
   const [count, setCount] = useState(4);
   const [yourName, setYourName] = useState('小智');
   const [seedText, setSeedText] = useState('');
+  const [setupOpen, setSetupOpen] = useState(false); // 手机:设置区折进 ⚙ 弹层
   const [game, setGame] = useState<GameState>(() => build(4, '小智', 1));
   const aiTimer = useRef<number | null>(null);
 
@@ -63,7 +64,8 @@ function LocalGame({ onExit }: { onExit: () => void }) {
     <div className="app">
       <header className="topbar">
         <h1>璀璨宝石：宝可梦 <span className="subtitle">单机 · 你 vs 电脑</span></h1>
-        <div className="setup">
+        <button className="btn tiny setup-gear" onClick={() => setSetupOpen((o) => !o)}>⚙ 设置</button>
+        <div className={`setup ${setupOpen ? 'open' : ''}`}>
           <button className="btn tiny" onClick={onExit}>← 模式</button>
           <label>你的名字：<input className="seed-input" style={{ width: 70 }} value={yourName} maxLength={8} onChange={(e) => setYourName(e.target.value)} /></label>
           <label>总人数：
@@ -103,6 +105,7 @@ function OnlineGame({ onExit }: { onExit: () => void }) {
 function OnlineSession({ url, onExit, onBack }: { url: string; onExit: () => void; onBack: () => void }) {
   const net = useOnlineGame(url);
   const [name, setName] = useState('');
+  const [setupOpen, setSetupOpen] = useState(false); // 手机:设置区折进 ⚙ 弹层
   const joined = net.yourSeat != null;
   const active = net.seats.filter((s) => s.kind !== 'empty').length;
   const canStart = active >= 2;
@@ -112,7 +115,8 @@ function OnlineSession({ url, onExit, onBack }: { url: string; onExit: () => voi
       <div className="app">
         <header className="topbar">
           <h1>璀璨宝石：宝可梦 <span className="subtitle">联机 · 你是 {net.seats.find((s) => s.idx === net.yourSeat)?.name ?? '观战'}</span></h1>
-          <div className="setup">
+          <button className="btn tiny setup-gear" onClick={() => setSetupOpen((o) => !o)}>⚙ 设置</button>
+          <div className={`setup ${setupOpen ? 'open' : ''}`}>
             <span className="conn-status">{net.status === 'open' ? '🟢 已连接' : '🔴 断开'}</span>
             <button className="btn tiny" onClick={() => net.reset()}>回到大厅</button>
             <button className="btn tiny" onClick={onExit}>退出</button>
