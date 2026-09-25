@@ -22,8 +22,48 @@ import { colorVectorMeets, totalTokens } from './util';
 
 const STALEMATE_LIMIT = 100;
 
+// 快速深拷:卡牌不可变(全程只读),故卡牌数组浅拷(共享卡引用)即可,
+// 避开 structuredClone 对 ~90 张卡的无谓深拷。行为与 structuredClone 等价(已验证:
+// 引擎单测全过 + 自对弈逐局 turnNumber 完全一致)。
 function clone(state: GameState): GameState {
-  return structuredClone(state);
+  const players: PlayerState[] = new Array(state.players.length);
+  for (let i = 0; i < state.players.length; i++) {
+    const p = state.players[i];
+    const t = p.tokens, bn = p.bonuses;
+    players[i] = {
+      id: p.id, name: p.name, isAI: p.isAI,
+      tokens: { red: t.red, blue: t.blue, black: t.black, pink: t.pink, yellow: t.yellow, master: t.master },
+      purchased: p.purchased.slice(),
+      reserved: p.reserved.slice(),
+      evolved: p.evolved.slice(),
+      bonuses: { red: bn.red, blue: bn.blue, black: bn.black, pink: bn.pink, yellow: bn.yellow },
+      ownedSpecies: new Set(p.ownedSpecies),
+      points: p.points,
+    };
+  }
+  const decks = {} as GameState['decks'];
+  for (const key of ALL_PILES) {
+    const d = state.decks[key];
+    decks[key] = { key: d.key, drawPile: d.drawPile.slice(), faceUp: d.faceUp.slice() };
+  }
+  const tp = state.tokenPool;
+  return {
+    players,
+    currentPlayerIndex: state.currentPlayerIndex,
+    tokenPool: { red: tp.red, blue: tp.blue, black: tp.black, pink: tp.pink, yellow: tp.yellow, master: tp.master },
+    decks,
+    turnNumber: state.turnNumber,
+    roundStartIndex: state.roundStartIndex,
+    lastProgressTurn: state.lastProgressTurn,
+    config: state.config, // 不可变,共享
+    endTriggeredByPlayerIndex: state.endTriggeredByPlayerIndex,
+    isGameOver: state.isGameOver,
+    winnerId: state.winnerId,
+    awaitingDiscard: state.awaitingDiscard,
+    awaitingEvolve: state.awaitingEvolve,
+    rngSeed: state.rngSeed,
+    log: state.log.slice(),
+  };
 }
 
 function findFaceUp(state: GameState, cardId: string): { pile: PileKey; slot: number; card: Card } | null {

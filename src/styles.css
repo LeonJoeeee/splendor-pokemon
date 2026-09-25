@@ -460,3 +460,58 @@ body {
   .setup { display: flex !important; position: static !important; }
   .me-sheet { display: contents !important; }
 }
+
+/* ============ 手机修复 r5:消除横向裁剪(每行第4张卡 + 半数供给球被切到屏外)============ */
+/* 根因:.layout.tab-me 的 flex/grid 子项缺 min-width:0(默认 min-width:auto),内容(~475px)
+   不肯收缩到视口(360–390px)以下,被 .app 的 overflow:hidden 裁到屏外 → 第4张卡和一半
+   供给球消失、点不到。补 min-width:0 让其随视口收缩;供给区 6 球改 6 列等分自适应永远放下。 */
+@media (max-width: 860px) {
+  .app:not(.menu) > * { min-width: 0; }
+  .layout.tab-me, .layout.tab-me .board, .layout.tab-me .tier-row,
+  .layout.tab-me .cards-row, .layout.tab-me .cards-row .card { min-width: 0; }
+
+  /* 供给区:6 个球用 6 列等分(随容器宽自适应);特殊格收窄并顶端对齐(不拉伸,消除卡下空黑),
+     把多出的宽度让给供给区,使球放大到 ~40-44px、取2 标签清晰。 */
+  .layout.tab-me .bottom-row { min-width: 0; align-items: flex-start; }
+  .layout.tab-me .special-section, .layout.tab-me .bank-section, .layout.tab-me .bank-col { min-width: 0; }
+  .layout.tab-me .special-section { gap: 5px; }
+  /* 特殊格强制收窄到 54px(隐藏「X张」计数、小号标签、卡填满格),把宽度让给供给区 */
+  .layout.tab-me .special-cell { flex: 0 0 54px; width: 54px; align-self: flex-start; padding: 4px 3px; }
+  .layout.tab-me .special-cell .special-head .deck-count { display: none; }
+  .layout.tab-me .special-cell .special-label { font-size: 10px; }
+  .layout.tab-me .special-cell .card { flex: 0 0 auto; width: 100%; max-width: none; }
+  .layout.tab-me .special-cell .card-art { height: 30px; }
+  .layout.tab-me .special-cell .card-art img { max-height: 30px; }
+  .layout.tab-me .bank-tokens { display: grid; grid-template-columns: repeat(6, 1fr); gap: 5px; }
+  .layout.tab-me .token-big { width: 100%; max-width: 46px; height: auto; aspect-ratio: 1; }
+}
+
+/* ============ 桌面修复 r5:调小固定尺寸,整页收进一屏(适配 MacBook 最大化,≤~700px)============ */
+/* 桌面那套"一屏"原本靠固定像素硬调,无视口约束 → 内容恒 ~890px,矮于它的窗口(720–860)
+   就整页纵向滚动。这里把卡牌/侧栏各区的固定高度统一调小,使两列都收进常见 MacBook 可用高度。 */
+@media (min-width: 861px) {
+  .app { padding: 5px 12px 8px; }
+  .turnbar { margin: 4px 0; padding: 4px 12px; }
+  .layout { gap: 8px; }
+  .board { gap: 4px; }
+
+  /* 棋盘卡牌压扁 */
+  .card { min-height: 120px; } .card.empty { min-height: 120px; }
+  .card-art { height: 48px; } .card-art img { max-height: 48px; }
+  .card-points { font-size: 16px; min-height: 17px; }
+
+  /* 传说/稀有格(宽度不动,只压高) */
+  .special-cell .card { min-height: 104px; }
+  .special-cell .card-art { height: 46px; } .special-cell .card-art img { max-height: 46px; }
+
+  /* 侧栏各区收紧 */
+  .sidebar { gap: 6px; }
+  .players { gap: 6px; }
+  .player-panel { padding: 6px 8px; }
+  .combo-cell { padding: 1px 8px; }
+  .combo-power { font-size: 13px; }
+  .reserved-row .card { min-height: 90px; }
+  .reserved-row .card-art { height: 28px; } .reserved-row .card-art img { max-height: 28px; }
+  .owned-chips { max-height: 48px; }
+  .log ul { max-height: 48px; }
+}
