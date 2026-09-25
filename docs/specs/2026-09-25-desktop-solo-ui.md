@@ -1,6 +1,6 @@
 # Desktop solo tabletop redesign
 
-Status: draft
+Status: accepted
 
 This document is for the independent pre-code design challenge. Implementation starts only after the accepted blob is recorded on issue #14 and the same lane is continued. Change the status to `committed` in the implementation PR.
 
