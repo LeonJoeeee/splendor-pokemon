@@ -50,7 +50,7 @@ function parsePath(urlPath) {
 }
 
 function isResourcePath(pathname) {
-  return path.extname(pathname) !== '' ||
+  return pathname.split('/').some((segment) => path.extname(segment) !== '') ||
     pathname === '/assets' || pathname.startsWith('/assets/') ||
     pathname === '/sprites' || pathname.startsWith('/sprites/');
 }
