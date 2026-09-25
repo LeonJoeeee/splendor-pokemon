@@ -19,70 +19,135 @@ function buildSoloGame(n: number, name: string, seed: number): GameState {
 export function App() {
   const [savedGame, setSavedGame] = useState<GameState | null>(() => loadSoloGame(browserStorage()));
   const [activeGame, setActiveGame] = useState<GameState | null>(null);
-  const startNew = () => {
-    const fresh = buildSoloGame(4, '小智', Math.floor(Math.random() * 1e9));
+  const [screen, setScreen] = useState<'landing' | 'setup' | 'confirm'>('landing');
+  const [name, setName] = useState('小智');
+  const [count, setCount] = useState(4);
+  const [seedText, setSeedText] = useState('');
+  const trimmedName = name.trim();
+  const seedValue = seedText.trim();
+  const seedValid = !seedValue || (/^(0|[1-9]\d*)$/.test(seedValue) && Number(seedValue) <= 0xffffffff);
+  const setupValid = trimmedName.length > 0 && trimmedName.length <= 8 && seedValid;
+
+  const openSaved = () => {
+    if (savedGame) setActiveGame(savedGame);
+  };
+  const replaceSaved = () => {
+    if (!setupValid) return;
+    const seed = seedValue ? Number(seedValue) : Math.floor(Math.random() * 0x100000000);
+    const fresh = buildSoloGame(count, trimmedName, seed);
     saveSoloGame(browserStorage(), fresh);
+    setSavedGame(fresh);
     setActiveGame(fresh);
+    setScreen('landing');
   };
   if (activeGame) return <LocalGame initialGame={activeGame} onExit={() => {
     setSavedGame(loadSoloGame(browserStorage()));
     setActiveGame(null);
+    setScreen('landing');
   }} />;
   return (
-    <div className="app menu">
-      <h1>璀璨宝石：宝可梦</h1>
-      <p className="menu-sub">Splendor: Pokémon · 非官方同人</p>
-      {savedGame && <button className="btn big-btn primary" onClick={() => setActiveGame(savedGame)}>继续对局 · 第 {savedGame.turnNumber} 回合</button>}
-      <button className={`btn big-btn ${savedGame ? '' : 'primary'}`} onClick={startNew}>🎮 开始新对局（你 vs 电脑）</button>
+    <div className="app solo-shell solo-landing">
+      <header className="solo-brand">
+        <span className="brand-kicker">宝可梦收藏桌游</span>
+        <h1>璀璨宝石：宝可梦</h1>
+        <p>收集、捕捉与进化，向冠军之路迈进。</p>
+        <span className="fan-note">Splendor: Pokémon · 非官方同人作品</span>
+      </header>
+      {screen === 'landing' && <main className="landing-card">
+        <div className="landing-intro">
+          <span className="eyebrow">单机对战</span>
+          <h2>打开你的训练家桌面</h2>
+          <p>每一回合，选择宝可梦球、捕捉卡牌，或预订下一位队员。</p>
+        </div>
+        <div className="landing-actions">
+          {savedGame && <div className="save-summary">
+            <span>已有对局</span>
+            <strong>{savedGame.players[0].name} · 第 {savedGame.turnNumber} 回合</strong>
+            <small>{savedGame.players.length} 位训练家 · 自动保存</small>
+          </div>}
+          {savedGame && <button className="btn primary" onClick={openSaved}>继续对局</button>}
+          <button className={`btn ${savedGame ? '' : 'primary'}`} onClick={() => setScreen('setup')}>开始新对局</button>
+        </div>
+      </main>}
+      {screen === 'setup' && <main className="landing-card setup-card">
+        <div className="landing-intro">
+          <span className="eyebrow">新对局</span>
+          <h2>组建训练家阵容</h2>
+          <p>与你的电脑对手展开一场新的收藏之旅。</p>
+        </div>
+        <form className="solo-form" onSubmit={(event) => {
+          event.preventDefault();
+          if (!setupValid) return;
+          if (savedGame) setScreen('confirm'); else replaceSaved();
+        }}>
+          <label htmlFor="solo-name">你的名字</label>
+          <input id="solo-name" value={name} maxLength={8} onChange={(event) => setName(event.target.value)} autoComplete="off" />
+          <label htmlFor="solo-count">总人数</label>
+          <select id="solo-count" value={count} onChange={(event) => setCount(Number(event.target.value))}>
+            <option value={2}>2 人 · 你与 1 位电脑</option>
+            <option value={3}>3 人 · 你与 2 位电脑</option>
+            <option value={4}>4 人 · 你与 3 位电脑</option>
+          </select>
+          <label htmlFor="solo-seed">种子 <span>可选</span></label>
+          <input id="solo-seed" value={seedText} onChange={(event) => setSeedText(event.target.value)} inputMode="numeric" placeholder="留空则随机生成" aria-invalid={!seedValid} />
+          {!seedValid && <p className="form-error">种子需为 0 至 4294967295 的整数。</p>}
+          {!trimmedName && <p className="form-error">请输入你的名字。</p>}
+          <div className="form-actions">
+            <button className="btn" type="button" onClick={() => setScreen('landing')}>返回</button>
+            <button className="btn primary" type="submit" disabled={!setupValid}>开始对局</button>
+          </div>
+        </form>
+      </main>}
+      {screen === 'confirm' && <main className="landing-card confirm-card" role="alertdialog" aria-labelledby="replace-heading" aria-describedby="replace-copy">
+        <span className="eyebrow">保存保护</span>
+        <h2 id="replace-heading">替换现有对局？</h2>
+        <p id="replace-copy">{savedGame?.players[0].name} 的第 {savedGame?.turnNumber} 回合对局将被新对局替换。此操作无法撤销。</p>
+        <div className="confirm-actions">
+          <button className="btn" onClick={() => setScreen('setup')}>取消</button>
+          <button className="btn" onClick={openSaved}>继续现有对局</button>
+          <button className="btn primary" onClick={replaceSaved}>替换并开始</button>
+        </div>
+      </main>}
     </div>
   );
 }
 
 // ----------------------------- 单机(你 vs 电脑) ---------------------------
 function LocalGame({ initialGame, onExit }: { initialGame: GameState; onExit: () => void }) {
-  const [count, setCount] = useState(initialGame.players.length);
-  const [yourName, setYourName] = useState(initialGame.players[0].name);
-  const [seedText, setSeedText] = useState('');
-  const [setupOpen, setSetupOpen] = useState(false); // 手机:设置区折进 ⚙ 弹层
   const [game, setGame] = useState<GameState>(initialGame);
   const aiTimer = useRef<number | null>(null);
+  const lastSaved = useRef(initialGame);
+  const exiting = useRef(false);
 
-  useEffect(() => { saveSoloGame(browserStorage(), game); }, [game]);
+  useEffect(() => {
+    if (game === lastSaved.current) return;
+    saveSoloGame(browserStorage(), game);
+    lastSaved.current = game;
+  }, [game]);
 
-  function startGame() {
-    const seed = seedText.trim() ? Number(seedText.trim()) >>> 0 : Math.floor(Math.random() * 1e9);
-    const fresh = buildSoloGame(count, yourName, seed);
-    saveSoloGame(browserStorage(), fresh);
-    setGame(fresh);
-  }
   const current = game.players[game.currentPlayerIndex];
   useEffect(() => {
     if (game.isGameOver || (!current.isAI && legalMoves(game).length > 0)) return;
     aiTimer.current = window.setTimeout(() => {
-      setGame(nextSoloTurn);
+      if (!exiting.current) setGame(nextSoloTurn);
     }, current.isAI ? (game.awaitingDiscard || game.awaitingEvolve ? 350 : 600) : 0);
     return () => { if (aiTimer.current !== null) window.clearTimeout(aiTimer.current); };
   }, [game, current.isAI]);
 
+  const exit = () => {
+    exiting.current = true;
+    if (aiTimer.current !== null) window.clearTimeout(aiTimer.current);
+    aiTimer.current = null;
+    onExit();
+  };
+
   const dispatch = (a: Action) => setGame((g) => { try { return applyAction(g, a); } catch (e) { alert((e as Error).message); return g; } });
 
   return (
-    <div className="app">
-      <header className="topbar">
-        <h1>璀璨宝石：宝可梦 <span className="subtitle">单机 · 你 vs 电脑</span></h1>
-        <button className="btn tiny setup-gear" onClick={() => setSetupOpen((o) => !o)}>⚙ 设置</button>
-        <div className={`setup ${setupOpen ? 'open' : ''}`}>
-          <button className="btn tiny" onClick={onExit}>← 模式</button>
-          <label>你的名字：<input className="seed-input" style={{ width: 70 }} value={yourName} maxLength={8} onChange={(e) => setYourName(e.target.value)} /></label>
-          <label>总人数：
-            <select value={count} onChange={(e) => setCount(Number(e.target.value))}>
-              <option value={2}>2</option><option value={3}>3</option><option value={4}>4</option>
-            </select>
-          </label>
-          <span className="conn-status">你 + {count - 1} 电脑</span>
-          <label>种子：<input className="seed-input" value={seedText} onChange={(e) => setSeedText(e.target.value)} placeholder="随机" /></label>
-          <button className="btn primary" onClick={startGame}>开始新对局</button>
-        </div>
+    <div className="app solo-shell solo-game">
+      <header className="topbar solo-topbar">
+        <div className="game-brand"><span className="brand-kicker">训练家桌面</span><h1>璀璨宝石：宝可梦</h1><span className="fan-note">单机 · 非官方同人作品</span></div>
+        <button className="btn" onClick={exit}>返回首页</button>
       </header>
       <GameTable game={game} youIndex={0} dispatch={dispatch} />
     </div>
