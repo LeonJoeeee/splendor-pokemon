@@ -1,6 +1,6 @@
 # Desktop solo trainer mat and contextual actions
 
-Status: draft
+Status: accepted
 
 ## Problem and context
 
