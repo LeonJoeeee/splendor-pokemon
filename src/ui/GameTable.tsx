@@ -1,6 +1,6 @@
 // 共享对局视图(本地与联机复用):回合栏 + 棋盘 + 侧栏 + 全部交互。
 // 交互通过 dispatch(action) 上抛(本地=applyAction;联机=发服务器);youIndex=null 表示本地热座(操作当前行动者)。
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   buildBuyAction,
   colorVectorMeets,
@@ -36,25 +36,17 @@ function findAnywhere(game: GameState, cardId: string): Card | null {
 export function GameTable({ game, youIndex, dispatch }: { game: GameState; youIndex: number | null; dispatch: (a: Action) => void }) {
   const [selected, setSelected] = useState<Record<Color, number>>(zeroSel);
   const [discardSel, setDiscardSel] = useState<Record<PayableToken, number>>(zeroPool);
-  const [tab, setTab] = useState<'me' | 'opp' | 'log'>('me'); // 仅手机:分页
-  const [meSheet, setMeSheet] = useState(false);              // 仅手机:预订/拥有底部弹出层
 
   const current = game.players[game.currentPlayerIndex];
   const me = youIndex != null ? game.players[youIndex] : current; // 视角玩家
   const isMyTurn = !game.isGameOver && (youIndex != null ? game.currentPlayerIndex === youIndex : !current.isAI);
   const isHumanTurn = isMyTurn && !game.awaitingDiscard && !game.awaitingEvolve;
+  const buyDisabledReason = game.isGameOver ? '对局已结束' : !isMyTurn ? '等待你的回合' : !isHumanTurn ? '请先完成当前阶段' : undefined;
   const humanDiscarding = isMyTurn && game.awaitingDiscard;
   const humanEvolving = isMyTurn && game.awaitingEvolve;
   const evolveOptions = useMemo<EvolveAction[]>(() => (humanEvolving ? legalEvolutions(game, me) : []), [game, humanEvolving, me]);
 
   const act = (a: Action) => { dispatch(a); setSelected(zeroSel()); setDiscardSel(zeroPool()); };
-
-  // 手机:轮到我(含回合末弃牌/进化)时,自动切回「我的」页,免得在对手/记录页错过操作
-  useEffect(() => { if (isMyTurn) setTab('me'); }, [isMyTurn]);
-  // 切页或轮转时自动收起弹出层,避免它盖住棋盘
-  useEffect(() => { setMeSheet(false); }, [tab, game.currentPlayerIndex]);
-  const oppCount = game.players.length - 1;
-  const needAction = isMyTurn && (game.awaitingDiscard || game.awaitingEvolve);
 
   // 取币
   const selectedCount = COLOR_ORDER.reduce((n, c) => n + (selected[c] > 0 ? 1 : 0), 0);
@@ -135,8 +127,8 @@ export function GameTable({ game, youIndex, dispatch }: { game: GameState; youIn
       </div>
       <div className="cards-row">
         {game.decks[pile].faceUp.map((card, i) => card ? (
-          <CardView key={card.id} card={card} affordable={affordBoard(card.id)} evoState={evoStateOfBoard(card)}
-            onBuy={isHumanTurn ? () => buyBoard(card.id) : undefined}
+          <CardView key={card.id} card={card} affordable={affordBoard(card.id)} evoState={evoStateOfBoard(card)} buyDisabledReason={buyDisabledReason}
+            onBuy={() => buyBoard(card.id)}
             onReserve={canReserve && card.kind === 'normal' ? () => act({ type: 'RESERVE', source: { kind: 'board', cardId: card.id } }) : undefined} />
         ) : <div key={`e-${String(pile)}-${i}`} className="card empty">空</div>)}
       </div>
@@ -148,7 +140,7 @@ export function GameTable({ game, youIndex, dispatch }: { game: GameState; youIn
     return (
       <div className={`special-cell ${pile}`} key={pile}>
         <div className="special-head"><span className="special-label">{label}</span><span className="deck-count">{game.decks[pile].drawPile.length}张</span></div>
-        {card ? <CardView card={card} affordable={affordBoard(card.id)} onBuy={isHumanTurn ? () => buyBoard(card.id) : undefined} /> : <div className="card empty">空</div>}
+        {card ? <CardView card={card} affordable={affordBoard(card.id)} buyDisabledReason={buyDisabledReason} onBuy={() => buyBoard(card.id)} /> : <div className="card empty">空</div>}
       </div>
     );
   };
@@ -157,10 +149,16 @@ export function GameTable({ game, youIndex, dispatch }: { game: GameState; youIn
   const winnerLabel = winners.length > 1
     ? `${winners.map((p) => p.name).join('、')} 共享胜利`
     : winners.length === 1 ? `${winners[0].name} 获胜!` : '对局结束';
+  const phase = game.isGameOver ? '对局结束'
+    : !isMyTurn ? (current.isAI ? '电脑行动中' : '等待对手行动')
+      : game.awaitingDiscard ? '弃球'
+        : game.awaitingEvolve ? '进化或结束'
+          : '选择主动作';
 
   return (
     <>
       <div className="turnbar">
+        <span className="phase-label">{phase}</span>
         {game.isGameOver ? (
           <span className="winner-banner">🏆 {winnerLabel}（{Math.max(...game.players.map((p) => p.points))} 分,第 {game.turnNumber} 回合）</span>
         ) : (
@@ -174,28 +172,12 @@ export function GameTable({ game, youIndex, dispatch }: { game: GameState; youIn
         )}
       </div>
 
-      <nav className="mobile-tabs">
-        <button className={tab === 'me' ? 'active' : ''} onClick={() => setTab('me')}>
-          🎮 我的{needAction && <i className="tab-dot" />}
-        </button>
-        <button className={tab === 'opp' ? 'active' : ''} onClick={() => setTab('opp')}>
-          👥 对手 <span className="tab-badge">{oppCount}</span>{!isMyTurn && !game.isGameOver && <i className="tab-dot" />}
-        </button>
-        <button className={tab === 'log' ? 'active' : ''} onClick={() => setTab('log')}>📜 记录</button>
-      </nav>
-
-      <div className={`layout tab-${tab}`}>
+      <div className="layout">
         <main className="board">
-          {TIER_ROWS.map((t) => renderRow(t, `T${t}`, true))}
-          <div className="bottom-row">
-          <section className="special-section">
-            {renderSpecial('legendary', '传说')}
-            {renderSpecial('rare', '稀有')}
-          </section>
           <section className="bank-section">
             {humanEvolving ? (
               <div className="evolve-panel">
-                <span className="section-label">⤴ 回合末进化(免费,凭永久加成)</span>
+                <h2 className="section-label">回合末进化 <small>免费 · 凭永久加成</small></h2>
                 <div className="evolve-row">
                   {evolveOptions.length === 0 && <span className="muted">无可进化</span>}
                   {evolveOptions.map((ev, i) => {
@@ -208,15 +190,15 @@ export function GameTable({ game, youIndex, dispatch }: { game: GameState; youIn
               </div>
             ) : humanDiscarding ? (
               <div className="discard-panel">
-                <span className="section-label">⚠ 需弃掉 {discardNeeded} 个(已选 {discardChosen})</span>
+                <h2 className="section-label">整理宝可梦球 <small>需弃掉 {discardNeeded} 个 · 已选 {discardChosen}</small></h2>
                 <div className="discard-row">
                   {PAYABLE_ORDER.filter((t) => me.tokens[t] > 0).map((t) => (
                     <div key={t} className="discard-col">
                       <span className="mini-token" style={{ background: BALL_META[t].hex, color: textOn(t) }}>{BALL_META[t].zh.replace('球', '')} {me.tokens[t] - discardSel[t]}</span>
                       <div className="stepper">
-                        <button className="btn tiny" disabled={discardSel[t] === 0} onClick={() => stepDiscard(t, -1)}>−</button>
+                        <button className="btn tiny" aria-label={`减少弃置${BALL_META[t].zh}`} disabled={discardSel[t] === 0} onClick={() => stepDiscard(t, -1)}>−</button>
                         <span className="step-val">{discardSel[t]}</span>
-                        <button className="btn tiny" disabled={me.tokens[t] === discardSel[t] || discardChosen >= discardNeeded} onClick={() => stepDiscard(t, 1)}>＋</button>
+                        <button className="btn tiny" aria-label={`增加弃置${BALL_META[t].zh}`} disabled={me.tokens[t] === discardSel[t] || discardChosen >= discardNeeded} onClick={() => stepDiscard(t, 1)}>＋</button>
                       </div>
                     </div>
                   ))}
@@ -225,7 +207,7 @@ export function GameTable({ game, youIndex, dispatch }: { game: GameState; youIn
               </div>
             ) : (
               <>
-                <span className="section-label">宝可梦球供给区</span>
+                <div className="tray-heading"><h2 className="section-label">宝可梦球供给区</h2><span>选择 1–3 种不同颜色，或从充足的球堆取 2 个</span></div>
                 <TokenBank pool={game.tokenPool} active={isHumanTurn} selected={selected} selectedCount={selectedCount} canConfirm={canConfirmTake}
                   onToggle={toggleSelect} onTakeTwo={(c) => act({ type: 'TAKE_TWO', color: c })}
                   onConfirmTake={() => act({ type: 'TAKE_THREE', colors: COLOR_ORDER.filter((c) => selected[c] > 0) })}
@@ -233,7 +215,12 @@ export function GameTable({ game, youIndex, dispatch }: { game: GameState; youIn
               </>
             )}
           </section>
-          </div>
+          <div className="board-heading"><h2>宝可梦展示区</h2><span>普通卡可预订 · 可捕捉的卡牌以金边提示</span></div>
+          {TIER_ROWS.map((t) => renderRow(t, `第 ${t} 阶`, true))}
+          <section className="special-section" aria-label="稀有与传说宝可梦">
+            {renderSpecial('legendary', '传说')}
+            {renderSpecial('rare', '稀有')}
+          </section>
         </main>
 
         <aside className="sidebar">
@@ -242,20 +229,17 @@ export function GameTable({ game, youIndex, dispatch }: { game: GameState; youIn
               <PlayerPanel key={p.id} player={p} isCurrent={i === game.currentPlayerIndex && !game.isGameOver} mine={p.id === me.id} />
             ))}
           </div>
-          <button className="me-sheet-toggle" onClick={() => setMeSheet(true)}>预订 {me.reserved.length}/3 · 拥有 {me.purchased.length} ▴</button>
-          <div className={`me-sheet ${meSheet ? 'open' : ''}`}>
-          <button className="me-sheet-close" onClick={() => setMeSheet(false)}>✕ 关闭</button>
           <div className="reserve-area">
-            <span className="section-label">我的预订（{me.reserved.length}/3）{youIndex != null ? '' : `· ${me.name}`}</span>
+            <h2 className="section-label">我的预订 <small>{me.reserved.length}/3{youIndex != null ? '' : ` · ${me.name}`}</small></h2>
             <div className="reserved-row">
               {me.reserved.length === 0 && <span className="muted">无预订(预订上限 3,可锁定心仪卡并得 1 大师球)</span>}
               {me.reserved.map((c) => (
-                <CardView key={c.id} card={c} reservedTag affordable={reservedSet.has(c.id)} onBuy={isHumanTurn ? () => buyReserved(c.id) : undefined} />
+                <CardView key={c.id} card={c} reservedTag affordable={reservedSet.has(c.id)} buyDisabledReason={buyDisabledReason} onBuy={() => buyReserved(c.id)} />
               ))}
             </div>
           </div>
           <div className="owned-team">
-            <span className="section-label">{me.name} 的宝可梦（{me.purchased.length}）{me.evolved.length > 0 && `· 已进化 ${me.evolved.length}`}</span>
+            <h2 className="section-label">{me.name} 的宝可梦 <small>{me.purchased.length} 只{me.evolved.length > 0 && ` · 已进化 ${me.evolved.length}`}</small></h2>
             <div className="owned-chips">
               {me.purchased.length === 0 && <span className="muted">尚无</span>}
               {[...me.purchased].sort((a, b) => COLOR_ORDER.indexOf(a.bonus) - COLOR_ORDER.indexOf(b.bonus) || a.stage - b.stage).map((c) => {
@@ -269,10 +253,8 @@ export function GameTable({ game, youIndex, dispatch }: { game: GameState; youIn
               })}
             </div>
           </div>
-          </div>
-          {meSheet && <div className="me-sheet-backdrop" onClick={() => setMeSheet(false)} />}
           <div className="log">
-            <span className="section-label">对局记录</span>
+            <h2 className="section-label">最近记录</h2>
             <ul>{game.log.slice(-16).reverse().map((l, i) => <li key={game.log.length - i}>{l}</li>)}</ul>
           </div>
         </aside>

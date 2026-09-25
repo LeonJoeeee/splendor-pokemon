@@ -28,12 +28,14 @@ export function TokenBank({ pool, active, selected, selectedCount, onToggle, onT
                 disabled={!active || (n === 0 && !sel)}
                 onClick={() => onToggle(c)}
                 title={`${BALL_META[c].zh}`}
+                aria-label={`选择${BALL_META[c].zh}，剩余 ${n} 个`}
+                aria-pressed={sel}
               >
-                <span className="token-name">{BALL_META[c].zh.replace('球', '')}</span>
+                <span className="token-name">{BALL_META[c].zh}</span>
                 <span className="token-count">{n}</span>
                 {sel && <span className="token-sel-dot" />}
               </button>
-              <button className="btn tiny" disabled={!active || n < TAKE_TWO_MIN_PILE} onClick={() => onTakeTwo(c)}>取2</button>
+              <button className="btn tiny" disabled={!active || n < TAKE_TWO_MIN_PILE} onClick={() => onTakeTwo(c)} aria-label={`取 2 个${BALL_META[c].zh}`}>取 2 个</button>
             </div>
           );
         })}
@@ -42,13 +44,14 @@ export function TokenBank({ pool, active, selected, selectedCount, onToggle, onT
             <span className="token-name">大师</span>
             <span className="token-count">{pool.master}</span>
           </div>
-          <span className="btn tiny ghost">预订得</span>
+          <span className="master-note">预订获得</span>
         </div>
       </div>
       <div className="bank-actions">
+        <span className="selection-summary" aria-live="polite">已选 {selectedCount} 种颜色</span>
         <button className="btn primary" disabled={!active || !canConfirm} onClick={onConfirmTake}>确认取 {selectedCount} 种</button>
         <button className="btn" disabled={selectedCount === 0} onClick={onClear}>清空</button>
-        <span className="hint">点球选 1~3 种不同色 → 确认;或点「取2」拿同色 2 个(该堆≥4)。大师球只能靠预订获得。</span>
+        <span className="hint">取 2 个同色球需该堆至少剩余 4 个。大师球只能通过预订获得。</span>
       </div>
     </div>
   );
