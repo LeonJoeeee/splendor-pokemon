@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { CARDS } from '../data/cards';
-import { createGame, passTurn, refreshPlayerDerived } from '../engine';
+import { createGame, legalEvolutions, passTurn, refreshPlayerDerived, type Card, type GameState } from '../engine';
 import { loadSoloGame, saveSoloGame, SOLO_SAVE_KEY } from '../solo/save';
 import { GameTable } from './GameTable';
 
@@ -15,6 +15,20 @@ function game() {
     cards: CARDS,
     seed: 42,
   });
+}
+
+function moveCard(state: GameState, id: string): Card {
+  for (const deck of Object.values(state.decks)) {
+    const face = deck.faceUp.findIndex((card) => card?.id === id);
+    if (face >= 0) {
+      const card = deck.faceUp[face]!;
+      deck.faceUp[face] = deck.drawPile.shift() ?? null;
+      return card;
+    }
+    const draw = deck.drawPile.findIndex((card) => card.id === id);
+    if (draw >= 0) return deck.drawPile.splice(draw, 1)[0];
+  }
+  throw new Error(`Missing card ${id}`);
 }
 
 describe('game result banner', () => {
@@ -78,8 +92,9 @@ describe('tabletop controls', () => {
   it('renders public cards as selectable faces and reserves the action area for an inspector', () => {
     const html = renderToStaticMarkup(createElement(GameTable, { game: game(), youIndex: 0, mode: 'local', dispatch: () => {} }));
     expect(html).toContain('aria-pressed="false"');
-    expect(html).toContain('选择卡牌查看详情');
-    expect(html).not.toContain('class="card-actions"');
+    expect(html).toContain('取宝可梦球');
+    expect(html).toContain('确认取 0 种');
+    expect(html).not.toContain('class="inspector-details');
   });
 
   it('renders an online unseated viewer with no enabled game actions', () => {
@@ -88,5 +103,48 @@ describe('tabletop controls', () => {
     const html = renderToStaticMarkup(createElement(GameTable, { game: state, youIndex: null, mode: 'online', dispatch: () => {} }));
     expect(html).toContain('观战模式');
     expect(html).not.toMatch(/aria-label="捕捉 [^"]+"/);
+  });
+});
+
+describe('trainer rail phase behavior', () => {
+  it('distinguishes same-name public and reserved evolution targets', () => {
+    const state = game();
+    const me = state.players[0];
+    me.purchased.push(moveCard(state, 'bulbasaur-0'));
+    for (const card of CARDS.filter((card) => card.bonus === 'pink' && card.id !== 'ivysaur-35' && card.id !== 'ivysaur-36').slice(0, 3)) {
+      me.purchased.push(moveCard(state, card.id));
+    }
+    me.reserved.push(moveCard(state, 'ivysaur-36'));
+    const target = moveCard(state, 'ivysaur-35');
+    const displaced = state.decks[2].faceUp[2];
+    state.decks[2].faceUp[2] = target;
+    if (displaced) state.decks[2].drawPile.push(displaced);
+    refreshPlayerDerived(me);
+    state.awaitingEvolve = true;
+    expect(legalEvolutions(state, me).filter((action) => action.fromCardId === 'bulbasaur-0')).toHaveLength(2);
+
+    const html = renderToStaticMarkup(createElement(GameTable, { game: state, youIndex: 0, mode: 'local', dispatch: () => {} }));
+
+    expect(html).toContain('妙蛙种子 → 妙蛙草 · 展示区·第 2 阶·第 3 格');
+    expect(html).toContain('妙蛙种子 → 妙蛙草 · 我的预订·第 1 格');
+  });
+
+  it('removes card actions during forced discard while keeping supply visible', () => {
+    const state = game();
+    state.players[0].tokens = { red: 4, blue: 3, black: 2, pink: 2, yellow: 0, master: 0 };
+    state.awaitingDiscard = true;
+
+    const html = renderToStaticMarkup(createElement(GameTable, { game: state, youIndex: 0, mode: 'local', dispatch: () => {} }));
+
+    expect(html).toContain('弃球');
+    expect(html).toContain('大师');
+    expect(html).not.toMatch(/<button[^>]*>捕捉<\/button>/);
+    expect(html).toContain('mode-discard');
+    expect(html).not.toContain('mode-card');
+  });
+
+  it('keeps three own reservation positions visible when none are filled', () => {
+    const html = renderToStaticMarkup(createElement(GameTable, { game: game(), youIndex: 0, mode: 'local', dispatch: () => {} }));
+    expect(html.match(/class="reserved-slot[^\"]*"/g)).toHaveLength(3);
   });
 });

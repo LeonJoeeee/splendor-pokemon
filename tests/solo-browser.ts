@@ -213,11 +213,10 @@ async function main() {
     const discard = await withSavedPage(browser, url, discardFixture());
     try {
       await discard.page.getByRole('button', { name: '继续对局' }).click();
-      assert.equal(await discard.page.getByText('弃球', { exact: true }).isVisible(), true);
-      await discard.page.locator('.tier-row .card-select').first().click();
-      const pausedBuy = discard.page.locator('.inspector-actions .buy');
-      assert.equal(await pausedBuy.isDisabled(), true);
-      assert.match(await pausedBuy.getAttribute('aria-label') ?? '', /先完成当前阶段/);
+      assert.equal(await discard.page.locator('.phase-label').textContent(), '弃球');
+      assert.equal(await discard.page.locator('.mode-discard').count(), 1);
+      assert.equal(await discard.page.locator('.tier-row .card-select').first().isDisabled(), true, 'Card controls are paused during discard');
+      assert.equal(await discard.page.locator('.inspector-actions .buy').count(), 0, 'No stale buy action is shown');
       await discard.page.getByRole('button', { name: '增加弃置红球' }).click();
       assert.equal(await discard.page.getByRole('button', { name: '确认弃牌' }).isEnabled(), true);
       await discard.page.getByRole('button', { name: '确认弃牌' }).click();
@@ -229,7 +228,7 @@ async function main() {
     const evolve = await withSavedPage(browser, url, evolveFixture());
     try {
       await evolve.page.getByRole('button', { name: '继续对局' }).click();
-      assert.equal(await evolve.page.getByText('进化或结束', { exact: true }).isVisible(), true);
+      assert.equal(await evolve.page.locator('.phase-label').textContent(), '进化或结束');
       assert.equal(await evolve.page.locator('#evolution-choice option').count() > 0, true);
       await evolve.page.getByRole('button', { name: '确认进化' }).click();
       assert.equal((await saveSnapshot(evolve.page)).writes, 1);
@@ -251,7 +250,7 @@ async function main() {
       await take.page.getByRole('button', { name: '继续对局' }).click();
       for (const color of ['红球', '蓝球', '黄球']) await take.page.getByRole('button', { name: new RegExp(`选择${color}`) }).click();
       await take.page.getByRole('button', { name: '确认取 3 种' }).click();
-      await take.page.getByText('电脑行动中', { exact: true }).waitFor();
+      await take.page.locator('.phase-label').filter({ hasText: '电脑行动中' }).waitFor();
       await take.page.locator('.turn-info').filter({ hasText: '存档者' }).waitFor({ timeout: 10000 });
       await take.page.reload();
       await take.page.getByRole('button', { name: '继续对局' }).click();
@@ -263,7 +262,8 @@ async function main() {
     const takeTwo = await withSavedPage(browser, url, raw);
     try {
       await takeTwo.page.getByRole('button', { name: '继续对局' }).click();
-      await takeTwo.page.getByRole('button', { name: '取 2 个红球' }).click();
+      await takeTwo.page.getByRole('button', { name: /选择红球/ }).click();
+      await takeTwo.page.getByRole('button', { name: '取 2 个同色' }).click();
       assert.equal((await saveSnapshot(takeTwo.page)).writes, 1);
     } finally {
       await takeTwo.context.close();
@@ -290,7 +290,8 @@ async function main() {
         await reserve.page.getByRole('button', { name: '继续对局' }).click();
         await reserve.page.locator(selector).first().click();
         if (action === 'face-up reserve') await reserve.page.locator('.inspector-actions .reserve').click();
-        assert.equal(await reserve.page.locator('.reserve-area .reserved-slot').count(), 1, action);
+        else await reserve.page.getByRole('button', { name: '确认盲抽预订' }).click();
+        assert.equal(await reserve.page.locator('.reserve-area button.reserved-slot').count(), 1, action);
       } finally {
         await reserve.context.close();
       }

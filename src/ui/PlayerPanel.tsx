@@ -5,19 +5,21 @@ import { BALL_META } from './theme';
 interface Props {
   player: PlayerState;
   isCurrent: boolean;
+  gameOver?: boolean;
   mine?: boolean;
   compact?: boolean;
+  readiness?: string;
 }
 
-export function PlayerPanel({ player, isCurrent, mine, compact = false }: Props) {
+export function PlayerPanel({ player, isCurrent, gameOver = false, mine, compact = false, readiness }: Props) {
   return (
     <div className={`player-panel ${isCurrent ? 'current' : ''} ${mine ? 'is-me' : 'is-opp'} ${compact ? 'compact' : ''}`}>
       <div className="player-head">
-        <span className="player-name">{mine && <small className="mine-label">你</small>}{player.name}{player.isAI && <small className="ai-label">电脑</small>}{isCurrent && <small className="turn-label">行动中</small>}</span>
+        <span className="player-name">{mine && <small className="mine-label">你</small>}{player.name}{player.isAI && <small className="ai-label">电脑</small>}<small className={isCurrent ? 'turn-label' : 'wait-label'}>{isCurrent ? '行动中' : gameOver ? '已结束' : '等待中'}</small></span>
         <span className="player-points" title="名望分数">{player.points}<small> 分</small></span>
       </div>
 
-      <div className="row-label">球/加成 · 手牌 {totalTokens(player.tokens)}/10 · 进化 {player.evolved.length} · 预订 {player.reserved.length}/3</div>
+      <div className="row-label">{mine && <span className="resource-legend">球 / 折扣</span>}<span>手牌 {totalTokens(player.tokens)}/10</span><span>预订 {player.reserved.length}/3</span></div>
       {compact ? <div className="compact-resources" aria-label="球与加成">
         {COLOR_ORDER.map((c) => <span key={c} className="compact-resource" title={`${BALL_META[c].zh}:手牌 ${player.tokens[c]}，加成 ${player.bonuses[c]}`}>
           <span><i className="combo-dot" style={{ background: BALL_META[c].hex }} />{BALL_META[c].zh.replace('球', '')}</span>
@@ -41,6 +43,8 @@ export function PlayerPanel({ player, isCurrent, mine, compact = false }: Props)
           <span className="combo-breakdown">百搭球</span>
         </span>
       </div>}
+
+      {mine && readiness && <div className="player-readiness">进化：{readiness}</div>}
 
       {!compact && player.purchased.length > 0 && (
         <details className="owned-details">

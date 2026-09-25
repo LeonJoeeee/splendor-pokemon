@@ -1,7 +1,7 @@
 {
   "name": "pokemon-trainer-league",
   "private": true,
-  "version": "0.3.0",
+  "version": "0.4.0",
   "type": "module",
   "description": "宝可梦：训练家联盟 — 基于 Splendor 经济的宝可梦主题对战游戏 + 启发式 AI",
   "scripts": {

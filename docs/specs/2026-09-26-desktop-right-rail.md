@@ -1,6 +1,6 @@
 # Desktop solo trainer mat and contextual actions
 
-Status: accepted
+Status: committed
 
 ## Problem and context
 
@@ -53,4 +53,4 @@ No mobile redesign, printed-card art, remote UI asset, engine or card-data chang
 
 ## Failure and rollback
 
-The visual/action composition is reversible as one UI change; saved games remain compatible. If acceptance or post-integration browser checks fail, the orchestrator can revert the UI release and restore the previously served build under the repository's existing deployment procedure. This draft authorizes no production deployment.
+The visual/action composition is reversible as one UI change; saved games remain compatible. If acceptance or post-integration browser checks fail, the orchestrator can revert the UI release and restore the previously served build under the repository's existing deployment procedure. This spec authorizes no production deployment.
