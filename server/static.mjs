@@ -37,14 +37,34 @@ const MIME = {
 
 const INDEX = path.join(ROOT, 'index.html');
 
-async function resolveFile(urlPath) {
-  // Decode + drop query, normalize, and confine to ROOT (no path traversal).
+function parsePath(urlPath) {
   let pathname;
   try {
     pathname = decodeURIComponent(urlPath.split('?')[0]);
   } catch {
     return null;
   }
+  if (!pathname.startsWith('/') || pathname.includes('\0') || pathname.includes('\\') ||
+      pathname.split('/').some((segment) => segment === '.' || segment === '..')) return null;
+  return pathname;
+}
+
+function isResourcePath(pathname) {
+  return path.extname(pathname) !== '' ||
+    pathname === '/assets' || pathname.startsWith('/assets/') ||
+    pathname === '/sprites' || pathname.startsWith('/sprites/');
+}
+
+async function confinedFile(candidate) {
+  try {
+    const realRoot = await fs.realpath(ROOT);
+    const realCandidate = await fs.realpath(candidate);
+    if (realCandidate === realRoot || realCandidate.startsWith(realRoot + path.sep)) return candidate;
+  } catch {}
+  return null;
+}
+
+async function resolveFile(pathname) {
   if (pathname === '/' || pathname === '') return INDEX;
   const candidate = path.join(ROOT, path.normalize(pathname));
   if (candidate !== ROOT && !candidate.startsWith(ROOT + path.sep)) return null; // traversal
@@ -74,13 +94,29 @@ const server = http.createServer(async (req, res) => {
     res.end('Method Not Allowed');
     return;
   }
-  let file = await resolveFile(req.url || '/');
-  // SPA fallback: unknown non-asset path -> index.html.
-  if (!file) file = INDEX;
+  const pathname = parsePath(req.url || '/');
+  if (pathname === null) {
+    res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+    res.end(req.method === 'HEAD' ? undefined : 'Not Found');
+    return;
+  }
+  let file = await resolveFile(pathname);
+  // Only navigation paths without a file extension use the SPA fallback.
+  if (!file && !isResourcePath(pathname)) file = INDEX;
+  if (!file) {
+    res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+    res.end(req.method === 'HEAD' ? undefined : 'Not Found');
+    return;
+  }
   let st;
   try { st = await fs.stat(file); } catch {
     res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
-    res.end('Not Found (dist/index.html missing — run `npm run build`)');
+    res.end(req.method === 'HEAD' ? undefined : 'Not Found (dist/index.html missing — run `npm run build`)');
+    return;
+  }
+  if (!(await confinedFile(file))) {
+    res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+    res.end(req.method === 'HEAD' ? undefined : 'Not Found');
     return;
   }
   const type = MIME[path.extname(file).toLowerCase()] || 'application/octet-stream';
