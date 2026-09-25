@@ -1,13 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { applyAction, createGame, legalMoves, type Action, type GameState } from './engine';
-import { makeRng } from './engine/rng';
-import { heuristicPolicy } from './ai/heuristic';
-
-const AI_POLICY = heuristicPolicy();
 import { CARDS } from './data/cards';
 import { GameTable } from './ui/GameTable';
 import { useOnlineGame } from './net/useOnlineGame';
 import { loadSoloGame, saveSoloGame } from './solo/save';
+import { nextSoloTurn } from './solo/turn';
 
 function browserStorage(): Storage | null {
   try { return window.localStorage; } catch { return null; }
@@ -60,16 +57,10 @@ function LocalGame({ initialGame, onExit }: { initialGame: GameState; onExit: ()
   }
   const current = game.players[game.currentPlayerIndex];
   useEffect(() => {
-    if (game.isGameOver || !current.isAI) return;
+    if (game.isGameOver || (!current.isAI && legalMoves(game).length > 0)) return;
     aiTimer.current = window.setTimeout(() => {
-      setGame((g) => {
-        if (g.isGameOver || !g.players[g.currentPlayerIndex].isAI) return g;
-        const moves = legalMoves(g);
-        if (moves.length === 0) return g;
-        const rng = makeRng((g.turnNumber * 2654435761 + g.rngSeed) >>> 0);
-        return applyAction(g, AI_POLICY(moves, g, rng));
-      });
-    }, game.awaitingDiscard || game.awaitingEvolve ? 350 : 600);
+      setGame(nextSoloTurn);
+    }, current.isAI ? (game.awaitingDiscard || game.awaitingEvolve ? 350 : 600) : 0);
     return () => { if (aiTimer.current !== null) window.clearTimeout(aiTimer.current); };
   }, [game, current.isAI]);
 

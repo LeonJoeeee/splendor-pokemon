@@ -20,5 +20,5 @@ export {
 export { resolveBuyCost, computePayment, canAfford, buildBuyAction } from './buy';
 export { createGame, DEFAULT_CONFIG, type NewGameOptions, type PlayerSeed } from './setup';
 export { legalMoves, legalEvolutions, canonicalDiscard, hasNoMoves } from './moves';
-export { applyAction, passTurn } from './apply';
+export { applyAction, passTurn, gameWinners } from './apply';
 export { validateDeck } from './validate';

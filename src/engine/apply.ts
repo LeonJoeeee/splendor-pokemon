@@ -78,16 +78,22 @@ function refill(state: GameState, pile: PileKey, slot: number): void {
   state.decks[pile].faceUp[slot] = state.decks[pile].drawPile.shift() ?? null;
 }
 
-function finishGame(state: GameState, stalemate = false): void {
-  state.isGameOver = true;
-  if (stalemate) state.log.push(`僵局:连续 ${STALEMATE_LIMIT} 回合无人推进,按当前分数判定。`);
+/** Players still tied after points, evolutions, and owned-card count. */
+export function gameWinners(state: GameState): PlayerState[] {
   const maxP = Math.max(...state.players.map((p) => p.points));
   let contenders = state.players.filter((p) => p.points === maxP);
   // tiebreak:先比已进化数量,再比拥有宝可梦总数
   const maxEvo = Math.max(...contenders.map((p) => p.evolved.length));
   contenders = contenders.filter((p) => p.evolved.length === maxEvo);
   const maxOwned = Math.max(...contenders.map((p) => p.purchased.length + p.evolved.length));
-  const winners = contenders.filter((p) => p.purchased.length + p.evolved.length === maxOwned);
+  return contenders.filter((p) => p.purchased.length + p.evolved.length === maxOwned);
+}
+
+function finishGame(state: GameState, stalemate = false): void {
+  state.isGameOver = true;
+  if (stalemate) state.log.push(`僵局:连续 ${STALEMATE_LIMIT} 回合无人推进,按当前分数判定。`);
+  const winners = gameWinners(state);
+  const maxP = winners[0].points;
   state.winnerId = winners[0].id;
   state.log.push(
     winners.length > 1

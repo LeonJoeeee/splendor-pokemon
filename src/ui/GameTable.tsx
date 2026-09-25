@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   buildBuyAction,
   colorVectorMeets,
+  gameWinners,
   legalEvolutions,
   totalTokens,
   type Action,
@@ -152,13 +153,16 @@ export function GameTable({ game, youIndex, dispatch }: { game: GameState; youIn
     );
   };
 
-  const winner = game.isGameOver ? game.players.find((p) => p.id === game.winnerId) : undefined;
+  const winners = game.isGameOver ? gameWinners(game) : [];
+  const winnerLabel = winners.length > 1
+    ? `${winners.map((p) => p.name).join('、')} 共享胜利`
+    : winners.length === 1 ? `${winners[0].name} 获胜!` : '对局结束';
 
   return (
     <>
       <div className="turnbar">
         {game.isGameOver ? (
-          <span className="winner-banner">🏆 {winner ? `${winner.name} 获胜!` : '对局结束'}（{Math.max(...game.players.map((p) => p.points))} 分,第 {game.turnNumber} 回合）</span>
+          <span className="winner-banner">🏆 {winnerLabel}（{Math.max(...game.players.map((p) => p.points))} 分,第 {game.turnNumber} 回合）</span>
         ) : (
           <>
             <span className="turn-info">第 {game.turnNumber} 回合 · 轮到 <b>{current.isAI ? '🤖' : '🧑'} {current.name}</b>{youIndex != null && current.id === me.id && '(你)'}</span>
