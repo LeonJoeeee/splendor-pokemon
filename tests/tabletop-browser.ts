@@ -6,7 +6,7 @@ import { applyAction, createGame, legalEvolutions, legalMoves, refreshPlayerDeri
 import { ALL_PILES, COLOR_ORDER, COLOR_SUPPLY_BY_PLAYERS, MASTER_SUPPLY, PAYABLE_ORDER } from '../src/engine/types';
 import { CARDS } from '../src/data/cards';
 import { nextSoloTurn } from '../src/solo/turn';
-import { serializeState } from '../src/net/serialize';
+import { deserializeState, serializeState } from '../src/net/serialize';
 import { SOLO_SAVE_KEY } from '../src/solo/save';
 
 function assertConserved(state: GameState) {
@@ -36,10 +36,10 @@ function longestVisibleNames(state: GameState) {
 
 function baseFixture(): GameState {
   let state = createGame({ players: [
-    { id: 'P0', name: '超级训练家', isAI: false },
-    { id: 'P1', name: '电脑训练家一', isAI: true },
-    { id: 'P2', name: '电脑训练家二', isAI: true },
-    { id: 'P3', name: '电脑训练家三', isAI: true },
+    { id: 'P0', name: '超级超级长名字的训练家', isAI: false },
+    { id: 'P1', name: '关都地区特别长的名字', isAI: true },
+    { id: 'P2', name: '城都地区另一位训练家', isAI: true },
+    { id: 'P3', name: '丰缘地区最强训练家', isAI: true },
   ], cards: CARDS, seed: 42 });
   for (const stage of [1, 2, 3] as const) {
     assert.equal(state.currentPlayerIndex, 0);
@@ -107,11 +107,49 @@ function waitingFixture(base: GameState): GameState {
   return state;
 }
 
+function duplicateEvolutionFixture(): GameState {
+  const state = createGame({ players: [
+    { id: 'P0', name: '进化训练家', isAI: false },
+    { id: 'P1', name: '电脑一', isAI: true },
+    { id: 'P2', name: '电脑二', isAI: true },
+    { id: 'P3', name: '电脑三', isAI: true },
+  ], cards: CARDS, seed: 42 });
+  const take = (id: string): Card => {
+    for (const pile of ALL_PILES) {
+      const deck = state.decks[pile];
+      const face = deck.faceUp.findIndex((card) => card?.id === id);
+      if (face >= 0) {
+        const card = deck.faceUp[face]!;
+        deck.faceUp[face] = deck.drawPile.shift() ?? null;
+        return card;
+      }
+      const draw = deck.drawPile.findIndex((card) => card.id === id);
+      if (draw >= 0) return deck.drawPile.splice(draw, 1)[0];
+    }
+    throw new Error(`Missing fixture card ${id}`);
+  };
+  const me = state.players[0];
+  me.purchased.push(take('bulbasaur-0'));
+  for (const card of CARDS.filter((card) => card.bonus === 'pink' && !['ivysaur-35', 'ivysaur-36'].includes(card.id)).slice(0, 3)) {
+    me.purchased.push(take(card.id));
+  }
+  me.reserved.push(take('ivysaur-36'), take('charmander-2'), take('squirtle-4'));
+  const target = take('ivysaur-35');
+  const displaced = state.decks[2].faceUp[2];
+  state.decks[2].faceUp[2] = target;
+  if (displaced) state.decks[2].drawPile.push(displaced);
+  refreshPlayerDerived(me);
+  state.awaitingEvolve = true;
+  assert.equal(legalEvolutions(state, me).filter((action) => action.fromCardId === 'bulbasaur-0').length, 2);
+  assertConserved(state);
+  return state;
+}
+
 function encoded(state: GameState) { return JSON.stringify({ version: 1, state: serializeState(state) }); }
 
 async function main() {
   const base = baseFixture();
-  const fixtures = { main: base, discard: discardFixture(base), evolve: evolveFixture(base), waiting: waitingFixture(base) };
+  const fixtures = { main: base, card: base, reserved: base, deck: base, discard: discardFixture(base), evolve: evolveFixture(base), waiting: waitingFixture(base) };
   const server = await createServer({ server: { host: '127.0.0.1', port: 0 } });
   await server.listen();
   const address = server.httpServer?.address();
@@ -128,10 +166,18 @@ async function main() {
         const page = await context.newPage();
         await page.goto(url);
         await page.getByRole('button', { name: '继续对局' }).click();
-        await page.locator('.tier-row .card-select').first().click();
-        assert.equal(await page.locator('.inspector-details').count(), 1);
+        if (phase === 'card' || phase === 'waiting') await page.locator('.tier-row .card-select').first().click();
+        if (phase === 'reserved') await page.locator('.reserved-slot').first().click();
+        if (phase === 'deck') await page.locator('.deck-select').first().click();
+        assert.equal(await page.locator('.inspector-details').count(), ['card', 'reserved', 'waiting'].includes(phase) ? 1 : 0);
+        assert.equal(await page.locator('.bank-col').count(), 6, 'Every supply count remains visible');
+        if (phase === 'waiting') assert.equal(await page.locator('.inspector-actions button').count(), 0, 'Waiting inspection is read-only');
+        if (phase === 'discard' || phase === 'evolve') {
+          assert.equal(await page.locator('.card-select').first().isDisabled(), true, 'Forced phase preempts card selection');
+          assert.equal(await page.locator('.deck-select').first().isDisabled(), true, 'Forced phase preempts deck selection');
+        }
         const dimensions = await page.evaluate(() => {
-          const selectors = ['.turnbar', '.table-piles', '.bank-section', '.card-inspector', '.players', '.reserve-area', '.evolution-readiness', '.tier-row .card-select', '.special-cell .card-select', '.deck-count', '.compact-resource', '.reserved-slot', '.inspector-details', '.inspector-actions'];
+          const selectors = ['.turnbar', '.table-piles', '.bank-section', '.action-area', '.players', '.reserve-area', '.player-readiness', '.tier-row .card-select', '.special-cell .card-select', '.deck-count', '.compact-resource', '.bank-token', '.reserved-slot', '.inspector-details', '.inspector-actions', '.action-area button'];
           const boxes = Object.fromEntries(selectors.map((selector) => [selector, [...document.querySelectorAll(selector)].map((element) => {
             const rect = element.getBoundingClientRect();
             return { x: rect.x, y: rect.y, right: rect.right, bottom: rect.bottom, width: rect.width, height: rect.height };
@@ -140,15 +186,15 @@ async function main() {
             font: { cardCost: Number.parseFloat(getComputedStyle(document.querySelector('.tier-row .cost-chip')!).fontSize),
               resourceCount: Number.parseFloat(getComputedStyle(document.querySelector('.compact-resource b')!).fontSize),
               bankCount: Number.parseFloat(getComputedStyle(document.querySelector('.token-count')!).fontSize),
-              bankTake: document.querySelector('.bank-col .btn.tiny') ? Number.parseFloat(getComputedStyle(document.querySelector('.bank-col .btn.tiny')!).fontSize) : null,
               resourceLabel: Number.parseFloat(getComputedStyle(document.querySelector('.compact-resource')!).fontSize) } };
         });
-        console.log(JSON.stringify({ phase, dimensions }));
+        console.log(`${phase} ${width}x${height}: page ${dimensions.scrollWidth}x${dimensions.scrollHeight}, rail ${await page.locator('.sidebar').evaluate((element) => `${element.scrollWidth}/${element.clientWidth} × ${element.scrollHeight}/${element.clientHeight}`)}`);
         assert.equal(dimensions.scrollWidth <= width, true, `${phase} ${width}: horizontal overflow`);
         assert.equal(dimensions.scrollHeight <= height, true, `${phase} ${width}: vertical overflow`);
         assert.equal(dimensions.boxes['.tier-row .card-select'].length, 12);
         assert.equal(dimensions.boxes['.special-cell .card-select'].length, 2);
         assert.equal(dimensions.boxes['.compact-resource'].length, 24);
+        assert.equal(dimensions.boxes['.bank-token'].length, 6);
         assert.equal(dimensions.boxes['.reserved-slot'].length, 3);
         if (phase === 'evolve') {
           assert.ok(await page.locator('#evolution-choice option').count() >= 2, 'All legal evolution pairs appear in the bounded chooser');
@@ -158,8 +204,9 @@ async function main() {
           assert.equal(await page.locator('#evolution-choice').inputValue(), second);
         }
         assert.ok(dimensions.font.cardCost >= 11 && dimensions.font.resourceCount >= 12 && dimensions.font.bankCount >= 13
-          && (dimensions.font.bankTake === null || dimensions.font.bankTake >= 11) && dimensions.font.resourceLabel >= 11,
+          && dimensions.font.resourceLabel >= 11,
           `${phase} ${width}: strategic numbers are too small`);
+        assert.equal(await page.locator('.sidebar').evaluate((element) => element.scrollHeight === element.clientHeight && element.scrollWidth === element.clientWidth), true, 'Rail has no internal scroll overflow');
         for (const [selector, boxes] of Object.entries(dimensions.boxes)) for (const box of boxes) {
           assert.ok(box.x >= 0 && box.y >= 0 && box.right <= width && box.bottom <= height, `${phase} ${width}: ${selector} outside viewport`);
         }
@@ -186,7 +233,7 @@ async function main() {
     await firstCard.focus();
     await keyboard.keyboard.press('Enter');
     assert.equal(await firstCard.getAttribute('aria-pressed'), 'true', 'Enter selects without acting');
-    assert.equal(await keyboard.locator('.reserved-slot').count(), 0);
+    assert.equal(await keyboard.locator('button.reserved-slot').count(), 0);
     await keyboard.keyboard.press('Escape');
     assert.equal(await keyboard.locator('.inspector-details').count(), 0);
     assert.equal(await firstCard.evaluate((element) => document.activeElement === element), true, 'Escape returns focus to the card');
@@ -195,11 +242,11 @@ async function main() {
     await keyboard.getByRole('button', { name: /^预订 / }).focus();
     await keyboard.keyboard.press('Enter');
     await keyboard.waitForFunction(() => document.activeElement?.classList.contains('card-select'));
-    assert.equal(await keyboard.locator('.reserved-slot').count(), 1);
+    assert.equal(await keyboard.locator('button.reserved-slot').count(), 1);
     assert.equal(await keyboard.locator('.inspector-details').count(), 0, 'Refill invalidates the selected card');
     assert.notEqual(await keyboard.locator('.tier-row .card-select').first().getAttribute('aria-label'), firstId);
     assert.equal(await keyboard.locator('.tier-row .card-select').first().evaluate((element) => document.activeElement === element), true, 'Refill focuses the same slot');
-    await keyboard.locator('.reserved-slot').focus();
+    await keyboard.locator('button.reserved-slot').focus();
     await keyboard.keyboard.press('Enter');
     assert.equal(await keyboard.locator('.inspector-details').count(), 1, 'Own reservation can be inspected by keyboard');
     await keyboard.locator('.table-context summary').focus();
@@ -239,14 +286,16 @@ async function main() {
     await takePage.getByRole('button', { name: '继续对局' }).click();
     await takePage.locator('.tier-row .card-select').first().focus();
     await takePage.keyboard.press('Enter');
-    const heldName = await takePage.locator('.inspector-name').textContent();
+    await takePage.getByRole('button', { name: '返回取球' }).focus();
+    await takePage.keyboard.press('Enter');
+    assert.equal(await takePage.locator('.mode-take').count(), 1, 'Card context returns explicitly to taking balls');
     for (const color of ['红球', '蓝球', '黄球']) {
       await takePage.getByRole('button', { name: new RegExp(`选择${color}`) }).focus();
       await takePage.keyboard.press('Enter');
     }
     await takePage.getByRole('button', { name: '确认取 3 种' }).focus();
     await takePage.keyboard.press('Enter');
-    assert.equal(await takePage.locator('.inspector-name').textContent(), heldName, 'Harmless token update preserves selection');
+    assert.equal(await takePage.locator('.mode-card').count(), 0, 'After taking, no stale card action remains');
     await takeContext.close();
 
     const evolveContext = await browser.newContext({ viewport: { width: 1280, height: 800 } });
@@ -263,6 +312,32 @@ async function main() {
     await evolvePage.keyboard.press('Enter');
     await evolvePage.waitForFunction(({ key, previous }) => localStorage.getItem(key) !== previous, { key: SOLO_SAVE_KEY, previous: previousSave });
     await evolveContext.close();
+
+    const duplicate = duplicateEvolutionFixture();
+    for (const [source, targetId, remaining] of [
+      ['展示区·第 2 阶·第 3 格', 'ivysaur-35', 3],
+      ['我的预订·第 1 格', 'ivysaur-36', 2],
+    ] as const) {
+      const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+      await context.addInitScript(({ key, value }) => localStorage.setItem(key, value), { key: SOLO_SAVE_KEY, value: encoded(duplicate) });
+      const page = await context.newPage();
+      await page.goto(url);
+      await page.getByRole('button', { name: '继续对局' }).click();
+      const options = await page.locator('#evolution-choice option').allTextContents();
+      assert.ok(options.some((label) => label.includes('展示区·第 2 阶·第 3 格')));
+      assert.ok(options.some((label) => label.includes('我的预订·第 1 格')));
+      await page.locator('#evolution-choice').selectOption({ label: options.find((label) => label.includes(source))! });
+      assert.match(await page.locator('.evolution-choice-details').textContent() ?? '', new RegExp(source));
+      const previous = await page.evaluate((key) => localStorage.getItem(key), SOLO_SAVE_KEY);
+      await page.getByRole('button', { name: '确认进化' }).click();
+      await page.waitForFunction(({ key, raw }) => localStorage.getItem(key) !== raw, { key: SOLO_SAVE_KEY, raw: previous });
+      const raw = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)!).state as string, SOLO_SAVE_KEY);
+      const evolved = deserializeState(raw);
+      assert.equal(evolved.players[0].reserved.length, remaining, `${source} reservation effect`);
+      assert.ok(evolved.players[0].purchased.some((card) => card.id === targetId));
+      assert.ok(evolved.players[0].evolved.some((card) => card.id === 'bulbasaur-0'));
+      await context.close();
+    }
 
     for (const width of [1280, 1440]) {
       const context = await browser.newContext({ viewport: { width, height: width === 1280 ? 800 : 900 } });
@@ -296,16 +371,15 @@ async function main() {
     await online.goto(`${url}tests/online-harness.html`);
     await online.locator('.tier-row .card-select').first().click();
     await online.getByRole('button', { name: /^预订 / }).click();
-    assert.equal(await online.locator('.reserved-slot').count(), 1, 'Seated online dispatch applies a reserve and rerenders');
+    assert.equal(await online.locator('button.reserved-slot').count(), 1, 'Seated online dispatch applies a reserve and rerenders');
     await online.close();
 
     const viewer = await browser.newPage({ viewport: { width: 1280, height: 800 } });
     await viewer.goto(`${url}tests/online-harness.html?viewer=1`);
     await viewer.locator('.tier-row .card-select').first().click();
     assert.equal(await viewer.locator('.inspector-details').count(), 1, 'Viewer can inspect public cards');
-    assert.equal(await viewer.locator('.inspector-actions .buy').isDisabled(), true);
-    assert.equal(await viewer.locator('.inspector-actions .reserve').isDisabled(), true);
-    assert.equal(await viewer.locator('.reserved-slot').count(), 0);
+    assert.equal(await viewer.locator('.inspector-actions button').count(), 0, 'Viewer receives details without dispatch controls');
+    assert.equal(await viewer.locator('button.reserved-slot').count(), 0);
     await viewer.close();
   } finally { await browser.close(); await server.close(); }
 }

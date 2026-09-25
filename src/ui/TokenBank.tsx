@@ -1,59 +1,50 @@
-import { TAKE_TWO_MIN_PILE, type Color, type TokenPool } from '../engine/types';
-import { COLORS, BALL_META, textOn } from './theme';
+import type { Ref } from 'react';
+import { TAKE_TWO_MIN_PILE, COLOR_ORDER, PAYABLE_ORDER, type Color, type TokenPool } from '../engine/types';
+import { BALL_META, textOn } from './theme';
 
-interface Props {
-  pool: TokenPool;
-  active: boolean;
-  selected: Record<Color, number>;
-  selectedCount: number;
-  onToggle: (c: Color) => void;
-  onTakeTwo: (c: Color) => void;
-  onConfirmTake: () => void;
-  onClear: () => void;
-  canConfirm: boolean;
-  showActions?: boolean;
+export function TokenBank({ pool }: { pool: TokenPool }) {
+  return <div className="token-bank" aria-label="宝可梦球供给">
+    {PAYABLE_ORDER.map((color) => <div key={color} className="bank-col" aria-label={`${BALL_META[color].zh}剩余 ${pool[color]} 个`}>
+      <span className="bank-token" style={{ background: BALL_META[color].hex, color: textOn(color) }}>
+        <span className="token-name">{BALL_META[color].zh.replace('球', '')}</span>
+        <strong className="token-count">{pool[color]}</strong>
+      </span>
+    </div>)}
+  </div>;
 }
 
-export function TokenBank({ pool, active, selected, selectedCount, onToggle, onTakeTwo, onConfirmTake, onClear, canConfirm, showActions = true }: Props) {
-  return (
-    <div className="token-bank">
-      <div className="bank-tokens">
-        {COLORS.map((c) => {
-          const n = pool[c];
-          const sel = selected[c] > 0;
-          return (
-            <div key={c} className="bank-col">
-              <button
-                className={`token-big ${sel ? 'selected' : ''}`}
-                style={{ background: BALL_META[c].hex, color: textOn(c) }}
-                disabled={!active || (n === 0 && !sel)}
-                onClick={() => onToggle(c)}
-                title={`${BALL_META[c].zh}`}
-                aria-label={`选择${BALL_META[c].zh}，剩余 ${n} 个`}
-                aria-pressed={sel}
-              >
-                <span className="token-name">{BALL_META[c].zh}</span>
-                <span className="token-count">{n}</span>
-                {sel && <span className="token-sel-dot" />}
-              </button>
-              {showActions && <button className="btn tiny" disabled={!active || n < TAKE_TWO_MIN_PILE} title={n < TAKE_TWO_MIN_PILE ? '此球堆不足 4 个' : !active ? '当前不可取球' : undefined} onClick={() => onTakeTwo(c)} aria-label={`取 2 个${BALL_META[c].zh}`}>取 2 个</button>}
-            </div>
-          );
-        })}
-        <div className="bank-col">
-          <div className="token-big master" style={{ background: BALL_META.master.hex, color: '#fff' }} title="大师球(百搭):仅通过预订获得">
-            <span className="token-name">大师</span>
-            <span className="token-count">{pool.master}</span>
-          </div>
-          <span className="master-note">预订获得</span>
-        </div>
-      </div>
-      {showActions && <div className="bank-actions">
-        <span className="selection-summary" aria-live="polite">已选 {selectedCount} 种颜色</span>
-        <button className="btn primary" disabled={!active || !canConfirm} onClick={onConfirmTake}>确认取 {selectedCount} 种</button>
-        <button className="btn" disabled={selectedCount === 0} onClick={onClear}>清空</button>
-        <span className="hint">取 2 个同色球需该堆至少剩余 4 个。大师球只能通过预订获得。</span>
-      </div>}
+interface TakeProps {
+  pool: TokenPool;
+  selected: Record<Color, number>;
+  onToggle: (color: Color) => void;
+  onTakeTwo: (color: Color) => void;
+  onConfirmTake: () => void;
+  onClear: () => void;
+  firstButtonRef?: Ref<HTMLButtonElement>;
+}
+
+export function TakeBallActions({ pool, selected, onToggle, onTakeTwo, onConfirmTake, onClear, firstButtonRef }: TakeProps) {
+  const chosen = COLOR_ORDER.filter((color) => selected[color] > 0);
+  const sameColor = chosen.length === 1 ? chosen[0] : null;
+  const canTakeTwo = sameColor !== null && pool[sameColor] >= TAKE_TWO_MIN_PILE;
+  const reason = sameColor && !canTakeTwo ? `${BALL_META[sameColor].zh}剩余不足 4 个，不能取 2 个` :
+    chosen.length === 0 ? '选择 1–3 种有库存的普通球。大师球只能通过预订获得。' :
+      chosen.length > 1 ? '取 2 个同色球须只选一种颜色。' : '可取所选颜色的 1 个，或取 2 个同色球。';
+  return <div className="take-actions">
+    <div className="take-colors" aria-label="选择普通球颜色">
+      {COLOR_ORDER.map((color, index) => <button key={color} ref={index === 0 ? firstButtonRef : undefined} type="button"
+        className={`take-color ${selected[color] ? 'selected' : ''}`} disabled={pool[color] === 0 && !selected[color]}
+        onClick={() => onToggle(color)} aria-pressed={!!selected[color]}
+        aria-label={`选择${BALL_META[color].zh}，供给 ${pool[color]} 个`}>
+        <i className="combo-dot" style={{ background: BALL_META[color].hex }} />{BALL_META[color].zh.replace('球', '')}
+      </button>)}
     </div>
-  );
+    <div className="take-buttons">
+      <span className="selection-summary" aria-live="polite">已选 {chosen.length} 种</span>
+      <button className="btn primary" disabled={chosen.length === 0} onClick={onConfirmTake}>确认取 {chosen.length} 种</button>
+      <button className="btn" disabled={!canTakeTwo} onClick={() => { if (sameColor) onTakeTwo(sameColor); }}>取 2 个同色</button>
+      <button className="btn" disabled={chosen.length === 0} onClick={onClear}>清空</button>
+    </div>
+    <p className="action-reason">{reason}</p>
+  </div>;
 }

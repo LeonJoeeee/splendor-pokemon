@@ -16,13 +16,13 @@ import {
 import { ALL_PILES, COLOR_ORDER, PAYABLE_ORDER, type PayableToken, type PileKey } from '../engine/types';
 import { CardDetails, CardView } from './CardView';
 import { PlayerPanel } from './PlayerPanel';
-import { TokenBank } from './TokenBank';
+import { TakeBallActions, TokenBank } from './TokenBank';
 import { BALL_META } from './theme';
 
 const TIER_ROWS: Stage[] = [3, 2, 1];
 const zeroSel = (): Record<Color, number> => ({ red: 0, blue: 0, black: 0, pink: 0, yellow: 0 });
 const zeroPool = (): Record<PayableToken, number> => ({ red: 0, blue: 0, black: 0, pink: 0, yellow: 0, master: 0 });
-type Selection = { cardId: string; source: 'board' | 'reserved'; slot: string };
+type Selection = { cardId: string; source: 'board' | 'reserved'; slot: string } | { source: 'deck'; pile: Stage; slot: string };
 
 function findAnywhere(game: GameState, cardId: string): Card | null {
   for (const p of game.players) for (const c of [...p.purchased, ...p.reserved]) if (c.id === cardId) return c;
@@ -33,6 +33,15 @@ function findAnywhere(game: GameState, cardId: string): Card | null {
   return null;
 }
 
+function evolutionTargetLocation(game: GameState, reserved: Card[], cardId: string): string {
+  for (const pile of ALL_PILES) {
+    const slot = game.decks[pile].faceUp.findIndex((card) => card?.id === cardId);
+    if (slot >= 0) return `展示区·第 ${pile} 阶·第 ${slot + 1} 格`;
+  }
+  const reservedSlot = reserved.findIndex((card) => card.id === cardId);
+  return reservedSlot >= 0 ? `我的预订·第 ${reservedSlot + 1} 格` : '目标已不可用';
+}
+
 export function GameTable({ game, youIndex, mode = 'local', dispatch }: { game: GameState; youIndex: number | null; mode?: 'local' | 'online'; dispatch: (a: Action) => void }) {
   const [selected, setSelected] = useState<Record<Color, number>>(zeroSel);
   const [discardSel, setDiscardSel] = useState<Record<PayableToken, number>>(zeroPool);
@@ -41,6 +50,9 @@ export function GameTable({ game, youIndex, mode = 'local', dispatch }: { game: 
   const slotRefs = useRef<Record<string, HTMLButtonElement | null>>({});
   const boardHeadingRef = useRef<HTMLHeadingElement>(null);
   const reserveHeadingRef = useRef<HTMLHeadingElement>(null);
+  const actionHeadingRef = useRef<HTMLHeadingElement>(null);
+  const actionAreaRef = useRef<HTMLElement>(null);
+  const takeFirstRef = useRef<HTMLButtonElement>(null);
 
   const current = game.players[game.currentPlayerIndex];
   const viewer = mode === 'online' && youIndex === null;
@@ -56,10 +68,11 @@ export function GameTable({ game, youIndex, mode = 'local', dispatch }: { game: 
   const chosenEvolution = evolveOptions.find((action) => choiceKey(action) === evolveChoice) ?? evolveOptions[0];
   const selectedCard = selection?.source === 'reserved'
     ? visibleReservations.find((card) => card.id === selection.cardId)
-    : selection ? ALL_PILES.flatMap((pile) => game.decks[pile].faceUp).find((card) => card?.id === selection.cardId) : null;
+    : selection?.source === 'board' ? ALL_PILES.flatMap((pile) => game.decks[pile].faceUp).find((card) => card?.id === selection.cardId) : null;
+  const selectedDeck = selection?.source === 'deck' ? selection.pile : null;
 
   useEffect(() => {
-    if (selection && !selectedCard) {
+    if (selection && selection.source !== 'deck' && !selectedCard) {
       const slot = selection.slot;
       setSelection(null);
       requestAnimationFrame(() => (slotRefs.current[slot] ?? (selection.source === 'reserved' ? reserveHeadingRef.current : boardHeadingRef.current))?.focus());
@@ -69,15 +82,37 @@ export function GameTable({ game, youIndex, mode = 'local', dispatch }: { game: 
   const clearSelection = () => {
     const slot = selection?.slot;
     setSelection(null);
-    if (slot) requestAnimationFrame(() => (slotRefs.current[slot] ?? (selection?.source === 'reserved' ? reserveHeadingRef.current : boardHeadingRef.current))?.focus());
+    if (slot) {
+      const target = slotRefs.current[slot];
+      (target && !target.disabled ? target : selection?.source === 'reserved' ? reserveHeadingRef.current : boardHeadingRef.current)?.focus();
+    }
   };
 
-  const act = (a: Action) => { if (!isMyTurn) return; dispatch(a); setSelected(zeroSel()); setDiscardSel(zeroPool()); };
+  const backToBalls = () => {
+    setSelection(null);
+    requestAnimationFrame(() => takeFirstRef.current?.focus());
+  };
+
+  const act = (a: Action) => {
+    if (!isMyTurn) return;
+    const slot = selection?.slot;
+    const focusWasInActions = !!actionAreaRef.current?.contains(document.activeElement);
+    dispatch(a);
+    setSelection(null);
+    setSelected(zeroSel());
+    setDiscardSel(zeroPool());
+    if (slot && (a.type === 'BUY' || a.type === 'RESERVE')) {
+      requestAnimationFrame(() => {
+        const target = slotRefs.current[slot];
+        (target && !target.disabled ? target : actionHeadingRef.current)?.focus();
+      });
+    } else if (focusWasInActions) {
+      requestAnimationFrame(() => actionHeadingRef.current?.focus());
+    }
+  };
 
   // 取币
   const selectedCount = COLOR_ORDER.reduce((n, c) => n + (selected[c] > 0 ? 1 : 0), 0);
-  const availColors = COLOR_ORDER.filter((c) => game.tokenPool[c] > 0).length;
-  const canConfirmTake = isHumanTurn && selectedCount >= 1 && selectedCount <= Math.min(3, availColors);
   const toggleSelect = (c: Color) => setSelected((s) => {
     const next = { ...s };
     if (next[c] > 0) next[c] = 0;
@@ -113,7 +148,7 @@ export function GameTable({ game, youIndex, mode = 'local', dispatch }: { game: 
   // 进化(视角=me)
   const targetAvailable = (speciesId: string): boolean => {
     for (const pile of ALL_PILES) if (game.decks[pile].faceUp.some((c) => c && c.kind === 'normal' && c.speciesId === speciesId)) return true;
-    return me.reserved.some((c) => c.kind === 'normal' && c.speciesId === speciesId);
+    return game.config.evolveFromReserved && me.reserved.some((c) => c.kind === 'normal' && c.speciesId === speciesId);
   };
   const evoStateOfBoard = (card: Card): 'can' | 'target' | null => {
     if (card.kind !== 'normal' || card.stage <= 1) return null;
@@ -137,14 +172,17 @@ export function GameTable({ game, youIndex, mode = 'local', dispatch }: { game: 
       <div className={`deck-pile ${typeof pile === 'string' ? pile : ''}`}>
         <div className="deck-label">{label}</div>
         <div className="deck-count">{game.decks[pile].drawPile.length} 张</div>
-        {canDeckReserve && (
-          <button className="btn tiny" disabled={!canReserve || game.decks[pile].drawPile.length === 0} title={!isHumanTurn ? buyDisabledReason : me.reserved.length >= 3 ? '预订已满' : game.decks[pile].drawPile.length === 0 ? '牌堆已空' : undefined} onClick={() => act({ type: 'RESERVE', source: { kind: 'deck', pile: pile as Stage } })}>盲抽预订</button>
-        )}
+        {canDeckReserve && <button className="btn tiny deck-select" type="button"
+          ref={(element) => { slotRefs.current[`deck-${pile}`] = element; }}
+          aria-pressed={selection?.source === 'deck' && selection.pile === pile} disabled={!isHumanTurn}
+          title={!isHumanTurn ? buyDisabledReason : undefined}
+          aria-label={`选择第 ${pile} 阶牌堆，剩余 ${game.decks[pile].drawPile.length} 张，查看盲抽预订`}
+          onClick={() => setSelection({ source: 'deck', pile: pile as Stage, slot: `deck-${pile}` })}>选择牌堆</button>}
       </div>
       <div className="cards-row">
         {game.decks[pile].faceUp.map((card, i) => card ? (
-          <CardView key={card.id} card={card} affordable={affordBoard(card.id)} evoState={evoStateOfBoard(card)}
-            selected={selection?.cardId === card.id && selection.source === 'board'} label={`${label}第 ${i + 1} 张`}
+          <CardView key={card.id} card={card} affordable={affordBoard(card.id)} evoState={evoStateOfBoard(card)} disabled={humanDiscarding || humanEvolving}
+            selected={selection?.source === 'board' && selection.cardId === card.id} label={`${label}第 ${i + 1} 张`}
             onSelect={() => setSelection({ cardId: card.id, source: 'board', slot: `${pile}-${i}` })}
             buttonRef={(element) => { slotRefs.current[`${pile}-${i}`] = element; }} />
         ) : <div key={`e-${String(pile)}-${i}`} className="card empty">空</div>)}
@@ -157,7 +195,7 @@ export function GameTable({ game, youIndex, mode = 'local', dispatch }: { game: 
     return (
       <div className={`special-cell ${pile}`} key={pile}>
         <div className="special-head"><span className="special-label">{label}</span><span className="deck-count">{game.decks[pile].drawPile.length}张</span></div>
-        {card ? <CardView card={card} affordable={affordBoard(card.id)} selected={selection?.cardId === card.id && selection.source === 'board'} label={`${label}卡`}
+        {card ? <CardView card={card} affordable={affordBoard(card.id)} disabled={humanDiscarding || humanEvolving} selected={selection?.source === 'board' && selection.cardId === card.id} label={`${label}卡`}
           onSelect={() => setSelection({ cardId: card.id, source: 'board', slot: `${pile}-0` })}
           buttonRef={(element) => { slotRefs.current[`${pile}-0`] = element; }} /> : <div className="card empty">空</div>}
       </div>
@@ -184,6 +222,25 @@ export function GameTable({ game, youIndex, mode = 'local', dispatch }: { game: 
     : me.purchased.find((card) => ownedEvo(card))
       ? `${me.purchased.find((card) => ownedEvo(card))?.nameZh}：${ownedEvo(me.purchased.find((card) => ownedEvo(card))!)?.label}`
       : '暂无可进化的宝可梦';
+  const actionMode = !isMyTurn ? 'readonly' : humanDiscarding ? 'discard' : humanEvolving ? 'evolve'
+    : selectedDeck !== null ? 'deck' : selectedCard ? 'card' : 'take';
+  const actionHeading = actionMode === 'discard' ? '弃球' : actionMode === 'evolve' ? '回合末进化'
+    : actionMode === 'deck' ? '盲抽预订' : actionMode === 'card' ? '卡牌操作'
+      : actionMode === 'readonly' ? '查看牌桌' : '取宝可梦球';
+  const evolutionLabel = (action: EvolveAction) => `${findAnywhere(game, action.fromCardId)?.nameZh} → ${findAnywhere(game, action.toCardId)?.nameZh} · ${evolutionTargetLocation(game, me.reserved, action.toCardId)}`;
+  const evolutionFrom = chosenEvolution ? findAnywhere(game, chosenEvolution.fromCardId) : null;
+  const evolutionCondition = evolutionFrom?.evolveCost
+    ? COLOR_ORDER.filter((color) => (evolutionFrom.evolveCost?.[color] ?? 0) > 0)
+      .map((color) => `${BALL_META[color].zh.replace('球', '')} ${me.bonuses[color]}/${evolutionFrom.evolveCost?.[color]}`).join(' · ') : '';
+
+  const lastModeRef = useRef(actionMode);
+  useEffect(() => {
+    if (lastModeRef.current === actionMode) return;
+    const focusWasInActions = !!actionAreaRef.current?.contains(document.activeElement);
+    lastModeRef.current = actionMode;
+    if (actionMode === 'discard' || actionMode === 'evolve') setSelection(null);
+    if (focusWasInActions) requestAnimationFrame(() => actionHeadingRef.current?.focus());
+  }, [actionMode]);
 
   return (
     <>
@@ -217,19 +274,20 @@ export function GameTable({ game, youIndex, mode = 'local', dispatch }: { game: 
         <aside className="sidebar">
           <div className="players">
             {game.players.map((p, i) => (
-              <PlayerPanel key={p.id} player={p} isCurrent={i === game.currentPlayerIndex && !game.isGameOver} mine={!viewer && p.id === me.id} compact />
+              <PlayerPanel key={p.id} player={p} isCurrent={i === game.currentPlayerIndex && !game.isGameOver} gameOver={game.isGameOver}
+                mine={!viewer && p.id === me.id} compact readiness={!viewer && p.id === me.id ? readiness : undefined} />
             ))}
           </div>
           <section className="bank-section">
             <h2 className="section-label">宝可梦球供给区</h2>
-            <TokenBank pool={game.tokenPool} active={isHumanTurn} showActions={isHumanTurn} selected={selected} selectedCount={selectedCount} canConfirm={canConfirmTake}
-              onToggle={toggleSelect} onTakeTwo={(c) => act({ type: 'TAKE_TWO', color: c })}
-              onConfirmTake={() => act({ type: 'TAKE_THREE', colors: COLOR_ORDER.filter((c) => selected[c] > 0) })}
-              onClear={() => setSelected(zeroSel())} />
-            {humanDiscarding && <div className="phase-actions discard-panel">
+            <TokenBank pool={game.tokenPool} />
+          </section>
+          <section ref={actionAreaRef} className={`action-area mode-${actionMode}`} aria-labelledby="action-heading">
+            <h2 ref={actionHeadingRef} id="action-heading" tabIndex={-1} className="section-label">{actionHeading}</h2>
+            {humanDiscarding ? <div className="phase-actions discard-panel">
               <strong>弃球 · 需 {discardNeeded} · 已选 {discardChosen}</strong>
               <div className="discard-row">
-                {PAYABLE_ORDER.filter((t) => me.tokens[t] > 0).map((t) => <div key={t} className="discard-col">
+                {PAYABLE_ORDER.map((t) => <div key={t} className="discard-col">
                   <span>{BALL_META[t].zh.replace('球', '')} {me.tokens[t] - discardSel[t]}</span>
                   <button className="btn tiny" aria-label={`减少弃置${BALL_META[t].zh}`} disabled={discardSel[t] === 0} onClick={() => stepDiscard(t, -1)}>−</button>
                   <span className="step-val">{discardSel[t]}</span>
@@ -237,9 +295,8 @@ export function GameTable({ game, youIndex, mode = 'local', dispatch }: { game: 
                 </div>)}
               </div>
               <button className="btn primary" disabled={discardChosen !== discardNeeded} onClick={() => act({ type: 'DISCARD', tokens: { ...discardSel } })}>确认弃牌</button>
-            </div>}
-            {humanEvolving && <div className="phase-actions evolve-panel">
-              <label htmlFor="evolution-choice">回合末进化 · {evolveOptions.length} 组可选</label>
+            </div> : humanEvolving ? <div className="phase-actions evolve-panel">
+              <label htmlFor="evolution-choice">选择进化 · {evolveOptions.length} 组可选</label>
               <div className="evolve-row">
                 <select id="evolution-choice" value={chosenEvolution ? choiceKey(chosenEvolution) : ''} onChange={(event) => setEvolveChoice(event.target.value)}
                   onKeyDown={(event) => {
@@ -249,40 +306,58 @@ export function GameTable({ game, youIndex, mode = 'local', dispatch }: { game: 
                     const next = event.key === 'Home' ? 0 : event.key === 'End' ? evolveOptions.length - 1
                       : Math.max(0, Math.min(evolveOptions.length - 1, index + (event.key === 'ArrowDown' ? 1 : -1)));
                     setEvolveChoice(choiceKey(evolveOptions[next]));
-                  }} disabled={!chosenEvolution}>
+                  }}
+                  disabled={!chosenEvolution}>
                   {evolveOptions.length === 0 && <option value="">无可进化</option>}
-                  {evolveOptions.map((ev) => <option key={choiceKey(ev)} value={choiceKey(ev)}>{findAnywhere(game, ev.fromCardId)?.nameZh} → {findAnywhere(game, ev.toCardId)?.nameZh}</option>)}
+                  {evolveOptions.map((ev) => <option key={choiceKey(ev)} value={choiceKey(ev)}>{evolutionLabel(ev)}</option>)}
                 </select>
-                <button className="btn evolve-btn" disabled={!chosenEvolution} onClick={() => { if (chosenEvolution) act(chosenEvolution); }}>确认进化</button>
+              </div>
+              {chosenEvolution && <div className="evolution-choice-details">
+                <strong>{evolutionLabel(chosenEvolution)}</strong>
+                <span>进化条件：永久加成 {evolutionCondition} · 已满足，不消耗球</span>
+              </div>}
+              <div className="evolve-buttons">
+                <button className="btn primary evolve-btn" disabled={!chosenEvolution} onClick={() => { if (chosenEvolution) act(chosenEvolution); }}>确认进化</button>
                 <button className="btn" onClick={() => act({ type: 'END_TURN' })}>结束回合(不进化)</button>
               </div>
-            </div>}
-          </section>
-          <section className="card-inspector" aria-label="卡牌详情">
-            <h2 className="section-label">卡牌详情</h2>
-            {selectedCard ? <>
-              <CardDetails card={selectedCard} evolution={selection?.source === 'board' && evoStateOfBoard(selectedCard) === 'can' ? '可作为进化目标' : selection?.source === 'board' && evoStateOfBoard(selectedCard) === 'target' ? '进化目标尚缺加成' : undefined} />
+            </div> : actionMode === 'readonly' ? <div className="read-only-actions">
+              <p>{phase} · 可选择展示区卡牌查看详情</p>
+              {selectedCard && <CardDetails card={selectedCard} showArt={false} />}
+            </div> : selectedDeck !== null ? <div className="deck-actions">
+              <p>第 {selectedDeck} 阶牌堆 · 剩余 {game.decks[selectedDeck].drawPile.length} 张</p>
+              <div className="inspector-actions">
+                <button className="btn primary" disabled={!canReserve || game.decks[selectedDeck].drawPile.length === 0}
+                  onClick={() => act({ type: 'RESERVE', source: { kind: 'deck', pile: selectedDeck } })}>确认盲抽预订</button>
+                <button className="btn" onClick={backToBalls}>返回取球</button>
+              </div>
+              {(!canReserve || game.decks[selectedDeck].drawPile.length === 0) && <p className="action-reason">{!canReserve ? '预订已满 3 张' : '牌堆已空'}</p>}
+            </div> : selectedCard ? <div className="card-actions-context">
+              <CardDetails card={selectedCard} showArt={false} evolution={selection?.source === 'board' && evoStateOfBoard(selectedCard) === 'can' ? '可作为进化目标' : selection?.source === 'board' && evoStateOfBoard(selectedCard) === 'target' ? '进化目标尚缺加成' : undefined} />
               <div className="inspector-actions">
                 <button className="btn buy" disabled={!buyChoice} title={buyChoice ? '可捕捉' : buyReason} aria-label={buyChoice ? `捕捉 ${selectedCard.nameZh}` : `${selectedCard.nameZh} 暂不可捕捉，${buyReason}`} onClick={() => { if (buyChoice) act(buyChoice.action); }}>捕捉</button>
                 {selection?.source === 'board' && <button className="btn reserve" disabled={!canReserveChoice} title={canReserveChoice ? '可预订' : reserveReason} aria-label={`预订 ${selectedCard.nameZh}${canReserveChoice ? '' : `，${reserveReason}`}`} onClick={() => { if (canReserveChoice) act({ type: 'RESERVE', source: { kind: 'board', cardId: selectedCard.id } }); }}>预订</button>}
-                <button className="btn" onClick={clearSelection}>返回牌桌</button>
+                <button className="btn" onClick={backToBalls}>返回取球</button>
               </div>
               {(!buyChoice || (selection?.source === 'board' && !canReserveChoice)) && <span className="inspector-reason">{!buyChoice && `捕捉：${buyReason}`}{selection?.source === 'board' && !canReserveChoice && ` · 预订：${reserveReason}`}</span>}
-            </> : <p className="inspector-empty">选择卡牌查看详情、捕捉或预订</p>}
-            <span className="selection-announcement" aria-live="polite">{selectedCard ? `已选择 ${selectedCard.nameZh}` : '未选择卡牌'}</span>
+            </div> : <TakeBallActions pool={game.tokenPool} selected={selected} firstButtonRef={takeFirstRef}
+              onToggle={toggleSelect} onTakeTwo={(color) => act({ type: 'TAKE_TWO', color })}
+              onConfirmTake={() => act({ type: 'TAKE_THREE', colors: COLOR_ORDER.filter((color) => selected[color] > 0) })}
+              onClear={() => setSelected(zeroSel())} />}
+            <span className="selection-announcement" aria-live="polite">{selectedCard ? `已选择 ${selectedCard.nameZh}` : selectedDeck !== null ? `已选择第 ${selectedDeck} 阶牌堆` : phase}</span>
           </section>
           <div className="reserve-area">
             <h2 ref={reserveHeadingRef} tabIndex={-1} className="section-label">{viewer ? '预订' : '我的预订'} <small>{visibleReservations.length}/3</small></h2>
             <div className="reserved-row">
-              {visibleReservations.length === 0 && <span className="muted">{viewer ? '观战者无预订' : '无预订'}</span>}
-              {visibleReservations.map((c, i) => <button key={c.id} type="button" className={`reserved-slot ${selection?.cardId === c.id && selection.source === 'reserved' ? 'selected' : ''}`}
-                ref={(element) => { slotRefs.current[`reserved-${i}`] = element; }} aria-pressed={selection?.cardId === c.id && selection.source === 'reserved'}
-                onClick={() => setSelection({ cardId: c.id, source: 'reserved', slot: `reserved-${i}` })}>
-                <strong>{c.nameZh}</strong><span>{c.points} 分 · {BALL_META[c.bonus].zh.replace('球', '')}+{c.bonusAmount}</span><small>{reservedSet.has(c.id) ? '可捕捉' : '查看详情'}</small>
-              </button>)}
+              {Array.from({ length: 3 }, (_, i) => {
+                const card = visibleReservations[i];
+                return card ? <button key={card.id} type="button" disabled={humanDiscarding || humanEvolving} className={`reserved-slot ${selection?.source === 'reserved' && selection.cardId === card.id ? 'selected' : ''}`}
+                  ref={(element) => { slotRefs.current[`reserved-${i}`] = element; }} aria-pressed={selection?.source === 'reserved' && selection.cardId === card.id}
+                  onClick={() => setSelection({ cardId: card.id, source: 'reserved', slot: `reserved-${i}` })}>
+                  <strong>{card.nameZh}</strong><span>{card.points} 分 · {BALL_META[card.bonus].zh.replace('球', '')}+{card.bonusAmount}</span><small>{reservedSet.has(card.id) ? '可捕捉' : '查看详情'}</small>
+                </button> : <span key={`empty-${i}`} className="reserved-slot empty">{viewer ? '无预订' : `空位 ${i + 1}`}</span>;
+              })}
             </div>
           </div>
-          <div className="evolution-readiness" aria-live="polite">⤴ {readiness}</div>
           <details className="table-context"><summary>队伍与记录</summary><div className="context-content">
             {game.players.map((player) => <section key={player.id}>
               <h3>{player.name} 的宝可梦 · {player.purchased.length} 只</h3>

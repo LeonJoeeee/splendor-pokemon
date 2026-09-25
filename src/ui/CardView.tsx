@@ -34,7 +34,7 @@ function EvolveMarks({ card }: { card: Card }) {
     <span key={c} className="evo-mark" style={{ color: BALL_META[c].hex }}>{BALL_META[c].zh.replace('球', '')}{card.evolveCost![c]}</span>)}</span>;
 }
 
-export function CardView({ card, selected, affordable, evoState, onSelect, label, buttonRef }: {
+export function CardView({ card, selected, affordable, evoState, onSelect, label, buttonRef, disabled = false }: {
   card: Card;
   selected: boolean;
   affordable: boolean;
@@ -42,11 +42,12 @@ export function CardView({ card, selected, affordable, evoState, onSelect, label
   onSelect: () => void;
   label: string;
   buttonRef?: Ref<HTMLButtonElement>;
+  disabled?: boolean;
 }) {
   const bonusMeta = BALL_META[card.bonus];
   const costText = COLOR_ORDER.filter((c) => card.cost[c]).map((c) => `${BALL_META[c].zh}${card.cost[c]}`).join('、');
   const evoText = card.evolveCost ? `，进化需求 ${COLOR_ORDER.filter((c) => card.evolveCost?.[c]).map((c) => `${BALL_META[c].zh}${card.evolveCost?.[c]}`).join('、')}` : '';
-  return <button ref={buttonRef} type="button" className={`card card-select ${card.kind !== 'normal' ? `special ${card.kind}` : `tier-${card.stage}`} ${affordable ? 'affordable' : ''} ${selected ? 'selected' : ''} ${evoState ? `evo-${evoState}` : ''}`}
+  return <button ref={buttonRef} type="button" disabled={disabled} className={`card card-select ${card.kind !== 'normal' ? `special ${card.kind}` : `tier-${card.stage}`} ${affordable ? 'affordable' : ''} ${selected ? 'selected' : ''} ${evoState ? `evo-${evoState}` : ''}`}
     style={{ borderTopColor: bonusMeta.hex }} onClick={onSelect} aria-pressed={selected}
     aria-label={`${label}，${card.nameZh}，${card.points}分，${bonusMeta.zh}加成${card.bonusAmount}，成本${costText}${card.cost.master ? `、大师球${card.cost.master}` : ''}${evoText}`}>
     <span className="card-head"><span className="card-points">{card.points}<small>分</small></span><span className="card-bonus" style={{ background: bonusMeta.hex, color: textOn(card.bonus) }}>{bonusMeta.zh.replace('球', '')}+{card.bonusAmount}</span></span>
@@ -58,9 +59,9 @@ export function CardView({ card, selected, affordable, evoState, onSelect, label
   </button>;
 }
 
-export function CardDetails({ card, evolution }: { card: Card; evolution?: string | null }) {
-  return <div className="inspector-details">
-    <CardArt card={card} />
+export function CardDetails({ card, evolution, showArt = true }: { card: Card; evolution?: string | null; showArt?: boolean }) {
+  return <div className={`inspector-details ${showArt ? '' : 'facts-only'}`}>
+    {showArt && <CardArt card={card} />}
     <div className="inspector-facts">
       <strong className="inspector-name">{card.nameZh}</strong>
       <span>{card.kind === 'normal' ? STAGE_LABEL[card.stage] : KIND_LABEL[card.kind]} · {card.points} 分 · {BALL_META[card.bonus].zh}加成 +{card.bonusAmount}</span>
