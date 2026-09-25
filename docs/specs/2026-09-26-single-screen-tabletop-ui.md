@@ -1,0 +1,51 @@
+# Single-screen desktop tabletop
+
+Status: draft
+
+## Problem & context
+
+[Issue #16](https://github.com/LeonJoeeee/splendor-pokemon/issues/16) continues the 0.2.0 desktop redesign. The current solo screen has the right paper-card direction, but its 267 px cards, action tray above the board, special cards below it, and vertically stacked player and reservation panels require scrolling. At 1280×800 and 1440×900, ordinary solo play must instead expose all 12 normal and two special public cards, the bank, both players' strategy information, own reservations, and evolution readiness in one browser viewport. Keep the existing rules, save and AI flow, and the online `GameTable` contract. Product text remains Chinese and retains the fan-game attribution.
+
+## Options considered
+
+| Option | Tradeoff |
+| --- | --- |
+| Reduce the current card and sidebar sizes in place | Least markup change, but four wide card rows, actions on every card, and special cards below the tiers consume too much height; essential text would become too small. Rejected. |
+| Three portrait-card rows, adjacent special stack, and a permanent strategy rail **(chosen)** | Uses width for 14 simultaneous cards and gives the bank, selected-card actions, player summaries, and reservations stable places. Requires a shared selection/inspector interaction. |
+| Carousel or tier tabs with enlarged cards | Larger art and controls, but hides public cards and weakens comparison and keyboard scanning. Rejected. |
+
+## Decision
+
+### Desktop geometry and visual grammar
+
+- Use a compact masthead and turn/phase strip above a two-column game grid. At 1280 px, target roughly 700–750 px for the table and the remaining roughly 460–510 px for the strategy rail after page padding and gap. Cap table width on wider desktops so portrait cards do not grow into landscape tiles. Budget no more than about 80 px above the grid and about 670 px for its contents at 1280×800; the actual fit is established by browser measurements, including the worst-case fixture, not by hiding overflow.
+- The table is three rows (T3, T2, T1), each with a labeled deck, visible count and blind-reserve affordance plus four face-up slots. Put rare and legendary cards in a narrow stack **adjacent to** those rows, with their own counts. Keep empty slots visible. Aim for normal card faces around 125–145 px wide by 165–185 px high at 1280×800; use a pale physical-style frame, top-corner score and permanent bonus, a near-top evolution requirement/cue, prominent existing Pokémon sprite, readable name, and lower capture costs. The two special cards use the same grammar. Color chips carry names/numbers as well as color. Long names wrap within the face; costs and evolution cues never disappear through clipping or truncation. Local sprite, existing fallback, then text placeholder remain the art sequence; no printed card image or new remote asset is bundled.
+- The rail keeps a compact, always visible player summary (2–4 players in a responsive two-column grid), a six-color bank with counts and take controls, a fixed-in-layout selected-card inspector, three visible own-reservation slots, and a concise evolution-readiness line. Every player summary shows name, turn marker, score, five-color holdings, five-color discounts, and master balls; own and opponent values use the same labels. The inspector is an allocated grid region, never an overlay on the table. It shows the selected card's full name, art, kind/stage, score, bonus, printed costs, evolution requirement and readiness, and buy/reserve buttons with concrete disabled reasons. Reservations show name and buy readiness, are selectable for inspector details, and remain present even when all three slots are occupied. Full owned-team lists, log, and expanded rules move to keyboard-accessible contextual panels; the readiness line and phase actions stay on the surface.
+- Keep bank supply counts visible in every phase. During a main action the rail allows one to three different-color selection, legal take-two, confirm/clear, and board or reserved card actions. During discard and evolve, use the same action region for exact-count discard controls or every legal evolution pair plus end turn. The current phase and legal next action remain explicit in text. Do not alter `Action`, `GameState`, engine, AI, or save data.
+
+### Selection and focus contract
+
+- Make the card face itself a semantic selectable control; Enter and Space select it without acting. Remove per-card buy/reserve buttons from the dense board and place those actions in the inspector, so selection cannot accidentally purchase. Give each slot an accessible tier/kind, position, name, score, bonus, cost, and evolution label. A selected card gets a persistent outline and `aria-pressed` state. The inspector starts with a clear empty-selection prompt. Clicking or keyboard-selecting a public or own reserved card populates it; no action depends on hover. Escape clears selection and returns focus to the previously selected card if it still exists.
+- Identify a selection by card ID and source (`board` or `reserved`), not only array position. Keep selection and focus across unrelated token/turn updates while that card remains; if an action removes it or a board refill replaces it, clear the inspector rather than letting its buttons act on the replacement. Restore focus to the same slot's new face when possible, otherwise to the table or reservation heading. Disabled buttons say why: turn/phase, insufficient balls, reservation limit, unavailable deck, or special-card restriction as applicable. Keep focus outlines, readable numeric type, and tab order following table then rail; announce phase/selection changes without stealing focus.
+
+### Files and boundaries
+
+`src/ui/GameTable.tsx` owns selection, inspector, phase composition, and existing `dispatch(Action)` behavior for both solo and online. `src/ui/CardView.tsx` gains a selectable compact face and a detail presentation shared by the inspector. `src/ui/PlayerPanel.tsx` and `src/ui/TokenBank.tsx` expose compact summaries and controls without suppressing resource counts. `src/styles.css` defines the desktop grid, portrait dimensions, focus/disabled states, and a content-first breakpoint. Scope solo geometry under `.solo-game`; adapt shared/online styles enough for the online GameTable to render and remain actionable. `src/App.tsx` keeps its current solo entry, save/resume and AI timing, with only minimal wrapper/layout changes if needed. Bump `package.json` and `package-lock.json` together from 0.2.0 to 0.3.0; the PR records this as a minor visual and interaction release with compatible game/save contracts.
+
+At narrower CSS viewports or increased browser zoom, reflow the table and rail vertically, allow page scrolling, and keep cards and controls legible. No document-level overflow suppression or clipped strategic content is acceptable. This issue does not redesign the mobile experience.
+
+## Out of scope
+
+- Game rules, card data, AI policy, persistence format, online protocol/server, and a new mobile UI.
+- Exact reproduction or bundling of printed cards; that needs owner-supplied photographs and rights review.
+- Changes to the landing/setup and save-replacement flow delivered in 0.2.0.
+
+## Verification
+
+1. On the final implementation head run `npm ci`, `npm test`, `npm run typecheck`, and `npm run build`. Add focused interaction coverage for card selection and its invalidation, buy/reserve, token take, evolution, and solo AI progression; keep existing rule tests green.
+2. In a real browser at 100% zoom, capture 1280×800 and 1440×900 ordinary solo turns and a controlled worst-case state with four player panels, three own reservations, long names, expensive cards and full public rows. Record `document.documentElement.scrollWidth <= innerWidth` and `scrollHeight <= innerHeight`, plus bounding boxes for all 14 cards, bank, deck counts, player values, reservations, readiness and inspector, showing they are in the viewport and not occluded. Inspect screenshots for readable names, costs, bonuses, scores and evolution cues. Exercise main, discard, evolve and AI phases; verify the bank counts remain visible and the inspector does not cover actions.
+3. Complete keyboard-only card selection, inspector buy/reserve, token take, evolution and Escape/focus-return flows. Verify selection across harmless board updates and after removal/refill. At a narrower viewport and increased zoom, verify natural scrolling and no inaccessible action. Smoke-check the shared online GameTable with an online-style `youIndex` and dispatch, and verify the existing save/continue flow. The PR links screenshots, viewport measurements, browser observations, and final command outputs.
+
+## Failure detection & rollback
+
+The UI is shared with online play and changes familiar action placement. Detect a partial failure through browser action/focus checks, online table smoke testing, and post-deploy HTTP/browser checks at the existing Tailscale URL. Integration and deployment belong to the orchestrator: build in a clean staging checkout with the retained sprite assets, preserve the dirty production source checkout and a restorable copy of the previously served `dist`, then switch built assets. On a failed smoke check, restore the previous `dist` and repeat the checks. Saved games need no migration; reverting the UI release leaves the existing save schema intact.
