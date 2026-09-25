@@ -164,7 +164,7 @@ async function main() {
       await tabletop.page.getByRole('button', { name: '继续对局' }).click();
       const tray = await tabletop.page.locator('.bank-section').boundingBox();
       const firstTier = await tabletop.page.locator('.tier-row').first().boundingBox();
-      assert.ok(tray && firstTier && tray.y < firstTier.y, 'Action tray must precede card tiers');
+      assert.ok(tray && firstTier && firstTier.x < tray.x, 'Board and bank occupy adjacent tabletop columns');
       assert.equal(await tabletop.page.getByRole('button', { name: /盲抽预订/ }).count(), 3);
       await tabletop.page.keyboard.press('Tab');
       await tabletop.page.getByRole('button', { name: /选择红球/ }).focus();
@@ -214,9 +214,10 @@ async function main() {
     try {
       await discard.page.getByRole('button', { name: '继续对局' }).click();
       assert.equal(await discard.page.getByText('弃球', { exact: true }).isVisible(), true);
-      const pausedBuy = discard.page.locator('.tier-row .card-actions .buy').first();
+      await discard.page.locator('.tier-row .card-select').first().click();
+      const pausedBuy = discard.page.locator('.inspector-actions .buy');
       assert.equal(await pausedBuy.isDisabled(), true);
-      assert.match(await pausedBuy.getAttribute('aria-label') ?? '', /请先完成当前阶段/);
+      assert.match(await pausedBuy.getAttribute('aria-label') ?? '', /先完成当前阶段/);
       await discard.page.getByRole('button', { name: '增加弃置红球' }).click();
       assert.equal(await discard.page.getByRole('button', { name: '确认弃牌' }).isEnabled(), true);
       await discard.page.getByRole('button', { name: '确认弃牌' }).click();
@@ -229,8 +230,8 @@ async function main() {
     try {
       await evolve.page.getByRole('button', { name: '继续对局' }).click();
       assert.equal(await evolve.page.getByText('进化或结束', { exact: true }).isVisible(), true);
-      assert.equal(await evolve.page.getByRole('button', { name: /→/ }).count() > 0, true);
-      await evolve.page.getByRole('button', { name: /→/ }).first().click();
+      assert.equal(await evolve.page.locator('#evolution-choice option').count() > 0, true);
+      await evolve.page.getByRole('button', { name: '确认进化' }).click();
       assert.equal((await saveSnapshot(evolve.page)).writes, 1);
     } finally {
       await evolve.context.close();
@@ -281,29 +282,31 @@ async function main() {
     }
 
     for (const [action, selector] of [
-      ['face-up reserve', '.tier-row .card-actions .reserve'],
+      ['face-up reserve', '.tier-row .card-select'],
       ['blind reserve', '.deck-pile .btn'],
     ] as const) {
       const reserve = await withSavedPage(browser, url, raw);
       try {
         await reserve.page.getByRole('button', { name: '继续对局' }).click();
         await reserve.page.locator(selector).first().click();
-        assert.equal(await reserve.page.locator('.reserve-area .card').count(), 1, action);
+        if (action === 'face-up reserve') await reserve.page.locator('.inspector-actions .reserve').click();
+        assert.equal(await reserve.page.locator('.reserve-area .reserved-slot').count(), 1, action);
       } finally {
         await reserve.context.close();
       }
     }
 
     for (const [action, selector, fixture] of [
-      ['board buy', '.tier-row .card-actions .buy', richFixture(false)],
-      ['rare buy', '.special-cell.rare .card-actions .buy', richFixture(false)],
-      ['legendary buy', '.special-cell.legendary .card-actions .buy', richFixture(false)],
-      ['reserved buy', '.reserve-area .card-actions .buy', richFixture(true)],
+      ['board buy', '.tier-row .card-select', richFixture(false)],
+      ['rare buy', '.special-cell.rare .card-select', richFixture(false)],
+      ['legendary buy', '.special-cell.legendary .card-select', richFixture(false)],
+      ['reserved buy', '.reserve-area .reserved-slot', richFixture(true)],
     ] as const) {
       const buy = await withSavedPage(browser, url, fixture);
       try {
         await buy.page.getByRole('button', { name: '继续对局' }).click();
-        const button = buy.page.locator(selector).first();
+        await buy.page.locator(selector).first().click();
+        const button = buy.page.locator('.inspector-actions .buy');
         assert.equal(await button.isEnabled(), true, action);
         await button.click();
         assert.equal((await saveSnapshot(buy.page)).writes, 1, action);
@@ -320,13 +323,14 @@ async function main() {
       await online.goto(`${url}tests/online-harness.html`);
       assert.equal(await online.locator('.turnbar').count(), 1, 'Online-style GameTable renders');
       assert.equal(await online.locator('.tier-row').count(), 3);
-      assert.equal(await online.locator('.card-actions .reserve').count() > 0, true);
+      await online.locator('.tier-row .card-select').first().click();
+      assert.equal(await online.locator('.inspector-actions .reserve').count(), 1);
       assert.equal(await online.locator('.bank-section').isVisible(), true);
       assert.equal(await online.locator('.players .player-panel').count(), 2);
+      if (process.env.SOLO_SCREENSHOT_DIR) await online.screenshot({ path: `${process.env.SOLO_SCREENSHOT_DIR}/online-1440x900.png`, fullPage: true });
       assert.equal(await online.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
       await online.waitForFunction(() => [...document.querySelectorAll<HTMLImageElement>('.card-art img')].every((img) => img.complete), null, { timeout: 20000 });
       assert.deepEqual(onlineErrors, []);
-      if (process.env.SOLO_SCREENSHOT_DIR) await online.screenshot({ path: `${process.env.SOLO_SCREENSHOT_DIR}/online-1440x900.png`, fullPage: true });
     } finally {
       await online.close();
     }

@@ -149,7 +149,7 @@ function LocalGame({ initialGame, onExit }: { initialGame: GameState; onExit: ()
         <div className="game-brand"><span className="brand-kicker">训练家桌面</span><h1>璀璨宝石：宝可梦</h1><span className="fan-note">单机 · 非官方同人作品</span></div>
         <button className="btn" onClick={exit}>返回首页</button>
       </header>
-      <GameTable game={game} youIndex={0} dispatch={dispatch} />
+      <GameTable game={game} youIndex={0} mode="local" dispatch={dispatch} />
     </div>
   );
 }
@@ -183,7 +183,7 @@ function OnlineSession({ url, onExit, onBack }: { url: string; onExit: () => voi
 
   if (net.started && net.game) {
     return (
-      <div className="app">
+      <div className="app solo-game">
         <header className="topbar">
           <h1>璀璨宝石：宝可梦 <span className="subtitle">联机 · 你是 {net.seats.find((s) => s.idx === net.yourSeat)?.name ?? '观战'}</span></h1>
           <button className="btn tiny setup-gear" onClick={() => setSetupOpen((o) => !o)}>⚙ 设置</button>
@@ -194,7 +194,7 @@ function OnlineSession({ url, onExit, onBack }: { url: string; onExit: () => voi
           </div>
         </header>
         {net.error && <div className="turnbar err-toast" onClick={net.clearError}>⚠ {net.error}（点击关闭）</div>}
-        <GameTable game={net.game} youIndex={net.yourPlayerIndex} dispatch={net.sendAction} />
+        <GameTable game={net.game} youIndex={net.yourPlayerIndex} mode="online" dispatch={net.sendAction} />
       </div>
     );
   }

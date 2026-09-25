@@ -11,9 +11,10 @@ interface Props {
   onConfirmTake: () => void;
   onClear: () => void;
   canConfirm: boolean;
+  showActions?: boolean;
 }
 
-export function TokenBank({ pool, active, selected, selectedCount, onToggle, onTakeTwo, onConfirmTake, onClear, canConfirm }: Props) {
+export function TokenBank({ pool, active, selected, selectedCount, onToggle, onTakeTwo, onConfirmTake, onClear, canConfirm, showActions = true }: Props) {
   return (
     <div className="token-bank">
       <div className="bank-tokens">
@@ -35,7 +36,7 @@ export function TokenBank({ pool, active, selected, selectedCount, onToggle, onT
                 <span className="token-count">{n}</span>
                 {sel && <span className="token-sel-dot" />}
               </button>
-              <button className="btn tiny" disabled={!active || n < TAKE_TWO_MIN_PILE} onClick={() => onTakeTwo(c)} aria-label={`取 2 个${BALL_META[c].zh}`}>取 2 个</button>
+              {showActions && <button className="btn tiny" disabled={!active || n < TAKE_TWO_MIN_PILE} title={n < TAKE_TWO_MIN_PILE ? '此球堆不足 4 个' : !active ? '当前不可取球' : undefined} onClick={() => onTakeTwo(c)} aria-label={`取 2 个${BALL_META[c].zh}`}>取 2 个</button>}
             </div>
           );
         })}
@@ -47,12 +48,12 @@ export function TokenBank({ pool, active, selected, selectedCount, onToggle, onT
           <span className="master-note">预订获得</span>
         </div>
       </div>
-      <div className="bank-actions">
+      {showActions && <div className="bank-actions">
         <span className="selection-summary" aria-live="polite">已选 {selectedCount} 种颜色</span>
         <button className="btn primary" disabled={!active || !canConfirm} onClick={onConfirmTake}>确认取 {selectedCount} 种</button>
         <button className="btn" disabled={selectedCount === 0} onClick={onClear}>清空</button>
         <span className="hint">取 2 个同色球需该堆至少剩余 4 个。大师球只能通过预订获得。</span>
-      </div>
+      </div>}
     </div>
   );
 }

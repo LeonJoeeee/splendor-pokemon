@@ -518,7 +518,7 @@ body {
   .log ul { max-height: 48px; }
 }
 
-/* Solo desktop tabletop. Keep its geometry inside the solo root so the online table stays usable. */
+/* Shared tabletop geometry; local and online game roots opt in. */
 .solo-shell {
   --bg: #0b1525;
   --panel: #15243a;
@@ -714,3 +714,128 @@ body {
 .app:not(.solo-shell) .combo-color { display: inline-flex; align-items: center; gap: 3px; font-size: 11px; }
 .app:not(.solo-shell) .combo-breakdown { grid-column: 1 / -1; color: var(--muted); font-size: 10px; white-space: nowrap; }
 .app:not(.solo-shell) .owned-details summary { cursor: pointer; }
+
+/* Issue 16: compact physical tabletop and allocated inspector. */
+.solo-shell.solo-game { max-width: none; padding: 7px 12px 8px; }
+.solo-game .solo-topbar { height: 38px; margin: 0 0 4px; padding: 0; align-items: center; }
+.solo-game .game-brand { display: flex; align-items: baseline; gap: 10px; }
+.solo-game .game-brand .brand-kicker { display: none; }
+.solo-game .game-brand h1 { margin: 0; font-size: 20px; }
+.solo-game .game-brand .fan-note { font-size: 11px; }
+.solo-game .solo-topbar .btn { min-height: 27px; padding: 3px 9px; }
+.solo-game .turnbar { min-height: 31px; margin: 0 0 5px; padding: 3px 8px; gap: 8px; font-size: 12px; }
+.solo-game .phase-label { padding: 3px 7px; font-size: 11px; }
+.solo-game .layout { grid-template-columns: minmax(0, 740px) minmax(0, 1fr); gap: 8px; align-items: start; }
+.solo-game .board { display: block; }
+.solo-game .board-heading { display: block; margin: 0 0 4px; font-size: 14px; line-height: 19px; }
+.solo-game .table-piles { display: grid; grid-template-columns: minmax(0, 1fr) 112px; gap: 6px; align-items: start; }
+.solo-game .normal-piles { display: grid; grid-template-rows: repeat(3, 206px); gap: 4px; }
+.solo-game .tier-row { height: 206px; grid-template-columns: 64px minmax(0, 1fr); gap: 6px; }
+.solo-game .deck-pile { width: 64px; padding: 5px 3px; border-radius: 7px; }
+.solo-game .deck-label { font-size: 12px; }
+.solo-game .deck-count { font-size: 11px; }
+.solo-game .deck-pile .btn { min-height: 29px; padding: 2px; font-size: 11px; line-height: 1.15; }
+.solo-game .cards-row { gap: 4px; }
+.solo-game .card-select { display: flex; flex-direction: column; text-align: left; height: 206px; min-height: 0; padding: 4px; gap: 1px; border-radius: 7px; overflow: visible; font: inherit; cursor: pointer; }
+.solo-game .card-select:hover { transform: translateY(-1px); }
+.solo-game .card-select.selected { outline: 3px solid #3076a0; outline-offset: 1px; }
+.solo-game .card-head { position: static; display: flex; width: 100%; min-height: 18px; }
+.solo-game .card-points { font-size: 15px; line-height: 17px; }
+.solo-game .card-points small { font-size: 9px; }
+.solo-game .card-bonus { min-height: 17px; height: 17px; padding: 1px 3px; font-size: 10px; white-space: nowrap; }
+.solo-game .card-evo-line { display: flex; gap: 2px; align-items: center; width: 100%; min-height: 15px; font-size: 10px; color: #36506a; }
+.solo-game .evo-need-tag { display: inline-flex; flex-wrap: wrap; gap: 2px; font-weight: 700; }
+.solo-game .evo-mark { color: #263b51 !important; border-radius: 3px; padding: 0 2px; background: #d9ceb3; }
+.solo-game .card-art { display: flex; flex: 0 0 94px; height: 94px; width: 100%; margin: 0; position: relative; }
+.solo-game .card-art img { max-height: 94px; }
+.solo-game .art-fallback { font-size: 10px; }
+.solo-game .art-fallback span { font-size: 10px; }
+.solo-game .art-fallback strong { font-size: 11px; }
+.solo-game .card-name { display: block; width: 100%; font-size: 13px; line-height: 1.1; font-weight: 800; }
+.solo-game .card-kind { display: block; font-size: 10px; color: #5b6265; }
+.solo-game .card-cost { display: flex; width: 100%; flex-wrap: wrap; gap: 2px; margin-top: auto; align-content: end; }
+.solo-game .cost-chip { padding: 1px 3px; font-size: 11px; line-height: 1.15; white-space: nowrap; }
+.solo-game .special-section { display: grid; grid-template-columns: 1fr; grid-template-rows: repeat(2, auto); gap: 6px; }
+.solo-game .special-cell { width: 112px; height: 200px; padding: 4px; gap: 2px; border-radius: 7px; }
+.solo-game .special-head { min-height: 17px; }
+.solo-game .special-label { font-size: 12px; }
+.solo-game .special-cell .card-select { width: 100%; height: 167px; min-height: 0; padding: 3px; }
+.solo-game .special-cell .card-art { flex-basis: 58px; height: 58px; }
+.solo-game .special-cell .card-art img { max-height: 58px; }
+.solo-game .sidebar { gap: 5px; }
+.solo-game .players { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; }
+.solo-game .player-panel.compact { min-height: 82px; padding: 5px 6px; border-radius: 7px; }
+.solo-game .player-panel.compact .player-head { gap: 2px; }
+.solo-game .player-panel.compact .player-name { display: block; font-size: 12px; line-height: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.solo-game .player-panel.compact .player-name small { font-size: 10px; padding: 0 2px; }
+.solo-game .player-panel.compact .player-points { font-size: 15px; }
+.solo-game .player-panel.compact .player-points small { font-size: 10px; }
+.solo-game .player-panel.compact .row-label { margin: 2px 0; font-size: 11px; line-height: 12px; white-space: nowrap; }
+.solo-game .compact-resources { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 1px; }
+.solo-game .compact-resource { display: flex; flex-direction: column; align-items: center; gap: 0; min-width: 0; background: #263a50; border-radius: 3px; font-size: 11px; }
+.solo-game .compact-resource span { display: flex; align-items: center; gap: 2px; white-space: nowrap; }
+.solo-game .compact-resource b { font-size: 13px; line-height: 15px; }
+.solo-game .compact-resource small { font-size: 10px; color: #c0cbd1; }
+.solo-game .compact-resource .combo-dot { width: 6px; height: 6px; }
+.solo-game .bank-section, .solo-game .card-inspector, .solo-game .reserve-area { padding: 5px 7px; border: 1px solid #53647a; border-radius: 7px; background: #17283f; }
+.solo-game .section-label { font-size: 12px; line-height: 16px; }
+.solo-game .token-bank { margin-top: 3px; }
+.solo-game .bank-tokens { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 2px; }
+.solo-game .bank-col { gap: 1px; }
+.solo-game .token-big { width: 37px; height: 37px; border-width: 1px; }
+.solo-game .token-name { font-size: 11px; }
+.solo-game .token-count { font-size: 13px; }
+.solo-game .bank-col .btn.tiny { min-height: 20px; padding: 1px; font-size: 11px; }
+.solo-game .master-note, .solo-game .hint { display: none; }
+.solo-game .bank-actions { flex-wrap: nowrap; gap: 4px; margin-top: 3px; }
+.solo-game .selection-summary { font-size: 11px; }
+.solo-game .bank-actions .btn { min-height: 24px; padding: 2px 4px; font-size: 11px; }
+.solo-game .phase-actions { margin-top: 3px; font-size: 11px; }
+.solo-game .discard-panel, .solo-game .evolve-panel { display: block; min-height: 0; }
+.solo-game .discard-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2px; margin: 2px 0; }
+.solo-game .discard-col { display: flex; flex-direction: row; align-items: center; gap: 2px; padding: 1px; font-size: 10px; }
+.solo-game .discard-col .btn { min-height: 20px; padding: 0 2px; }
+.solo-game .phase-actions > .btn { min-height: 23px; padding: 2px 6px; }
+.solo-game .evolve-row { display: flex; flex-wrap: nowrap; gap: 3px; margin-top: 2px; }
+.solo-game .evolve-row select { flex: 1; min-width: 0; background: #263a50; color: #fff; border: 1px solid #7c8fa2; font-size: 11px; }
+.solo-game .evolve-row .btn { flex: 0 0 auto; min-height: 26px; padding: 2px 5px; font-size: 10px; }
+.solo-game .card-inspector { min-height: 145px; }
+.solo-game .inspector-details { display: grid; grid-template-columns: 75px minmax(0, 1fr); gap: 6px; min-height: 77px; }
+.solo-game .inspector-details .card-art { height: 72px; }
+.solo-game .inspector-details .card-art img { max-height: 72px; }
+.solo-game .inspector-facts { display: flex; flex-direction: column; gap: 2px; font-size: 11px; }
+.solo-game .inspector-name { font-size: 14px; }
+.solo-game .inspector-facts .card-cost { margin-top: 0; }
+.solo-game .inspector-actions { display: flex; gap: 4px; margin-top: 3px; }
+.solo-game .inspector-actions .btn { min-height: 25px; padding: 2px 7px; font-size: 11px; }
+.solo-game .inspector-reason { display: block; font-size: 10px; line-height: 12px; }
+.solo-game .inspector-empty { margin: 8px 0; font-size: 12px; }
+.solo-game .selection-announcement { position: absolute; width: 1px; height: 1px; clip-path: inset(50%); overflow: hidden; }
+.solo-game .reserve-area { min-height: 66px; }
+.solo-game .reserved-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 3px; margin-top: 3px; }
+.solo-game .reserved-slot { display: flex; flex-direction: column; min-height: 40px; padding: 2px; color: #f4e4bd; background: #263a50; border: 1px solid #667487; border-radius: 4px; text-align: left; font-size: 10px; }
+.solo-game .reserved-slot.selected { outline: 2px solid #e6bd69; }
+.solo-game .reserved-slot strong { font-size: 11px; }
+.solo-game .reserved-slot small { font-size: 10px; }
+.solo-game .evolution-readiness { min-height: 17px; font-size: 11px; color: #c9dfed; }
+.solo-game .table-context { position: relative; font-size: 11px; }
+.solo-game .table-context summary { cursor: pointer; }
+.solo-game .context-content { position: absolute; right: 0; top: 100%; z-index: 10; width: 100%; max-height: 280px; overflow: auto; padding: 8px; background: #17283f; border: 1px solid #8395aa; }
+
+@media (max-width: 1120px) {
+  .solo-game .layout { grid-template-columns: 1fr; }
+  .solo-game .board { max-width: 740px; }
+  .solo-game .sidebar { max-width: 740px; }
+}
+@media (max-width: 760px) {
+  .solo-game .table-piles { display: block; }
+  .solo-game .normal-piles { display: block; }
+  .solo-game .tier-row { height: auto; display: block; margin-bottom: 8px; }
+  .solo-game .deck-pile { width: 100%; min-height: 40px; flex-direction: row; align-items: center; }
+  .solo-game .deck-pile .btn { width: auto; }
+  .solo-game .cards-row { grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 4px; }
+  .solo-game .special-section { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .solo-game .special-cell { width: auto; }
+  .solo-game .players { grid-template-columns: 1fr; }
+  .solo-game .game-brand .fan-note { display: none; }
+}

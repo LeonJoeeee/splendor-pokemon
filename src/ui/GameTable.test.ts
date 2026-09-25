@@ -73,3 +73,20 @@ describe('game result banner', () => {
     expect(html).not.toContain('共享胜利');
   });
 });
+
+describe('tabletop controls', () => {
+  it('renders public cards as selectable faces and reserves the action area for an inspector', () => {
+    const html = renderToStaticMarkup(createElement(GameTable, { game: game(), youIndex: 0, mode: 'local', dispatch: () => {} }));
+    expect(html).toContain('aria-pressed="false"');
+    expect(html).toContain('选择卡牌查看详情');
+    expect(html).not.toContain('class="card-actions"');
+  });
+
+  it('renders an online unseated viewer with no enabled game actions', () => {
+    const state = game();
+    for (const color of ['red', 'blue', 'black', 'pink', 'yellow'] as const) state.players[0].bonuses[color] = 10;
+    const html = renderToStaticMarkup(createElement(GameTable, { game: state, youIndex: null, mode: 'online', dispatch: () => {} }));
+    expect(html).toContain('观战模式');
+    expect(html).not.toMatch(/aria-label="捕捉 [^"]+"/);
+  });
+});
