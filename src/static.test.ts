@@ -76,6 +76,12 @@ describe('production static server HTTP behavior', () => {
     expect(result.body).not.toContain('app shell');
   });
 
+  it.each(['/favicon.svg/extra', '/favicon.svg/'])('returns 404 for a resource segment followed by more path: %s', async (urlPath) => {
+    expect(await response(port, urlPath)).toEqual({
+      status: 404, type: 'text/plain; charset=utf-8', body: 'Not Found',
+    });
+  });
+
   it('returns 404 for a traversal attempt and a symlink outside the build root', async () => {
     expect((await response(port, '/assets/%2e%2e/%2e%2e/outside.txt')).status).toBe(404);
     expect((await response(port, '/assets/outside.txt')).status).toBe(404);
@@ -88,7 +94,7 @@ describe('production static server HTTP behavior', () => {
   });
 
   it('preserves HEAD status and sends no body', async () => {
-    for (const [urlPath, status] of [['/assets/existing.js', 200], ['/assets/not-real.js', 404], ['/solo/new-game', 200]] as const) {
+    for (const [urlPath, status] of [['/assets/existing.js', 200], ['/assets/not-real.js', 404], ['/favicon.svg/extra', 404], ['/favicon.svg/', 404], ['/solo/new-game', 200]] as const) {
       const result = await response(port, urlPath, 'HEAD');
       expect(result.status).toBe(status);
       expect(result.body).toBe('');
