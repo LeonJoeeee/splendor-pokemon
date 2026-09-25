@@ -1,6 +1,6 @@
 # Single-screen desktop tabletop
 
-Status: draft
+Status: accepted
 
 ## Problem & context
 
