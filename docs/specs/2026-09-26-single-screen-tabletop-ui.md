@@ -1,6 +1,6 @@
 # Single-screen desktop tabletop
 
-Status: accepted
+Status: committed
 
 ## Problem & context
 
