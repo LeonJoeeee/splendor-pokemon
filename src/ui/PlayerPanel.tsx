@@ -5,11 +5,12 @@ import { BALL_META } from './theme';
 interface Props {
   player: PlayerState;
   isCurrent: boolean;
+  mine?: boolean;
 }
 
-export function PlayerPanel({ player, isCurrent }: Props) {
+export function PlayerPanel({ player, isCurrent, mine }: Props) {
   return (
-    <div className={`player-panel ${isCurrent ? 'current' : ''}`}>
+    <div className={`player-panel ${isCurrent ? 'current' : ''} ${mine ? 'is-me' : 'is-opp'}`}>
       <div className="player-head">
         <span className="player-name">{player.isAI ? '🤖 ' : '🧑 '}{player.name}</span>
         <span className="player-points" title="分数">🏆 {player.points}</span>

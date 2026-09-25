@@ -1,5 +1,5 @@
 // 启发式 AI:可调权重的线性评估 + 1-ply 贪心。权重可由自对弈训练(sim/train.ts)调优。
-import { applyAction, buildBuyAction, colorVectorMeets, type GameState } from '../engine';
+import { applyAction, buildBuyAction, colorVectorMeets, totalTokens, type GameState } from '../engine';
 import { ALL_PILES, COLOR_ORDER, WIN_THRESHOLD } from '../engine/types';
 import type { Policy } from './policies';
 
@@ -12,12 +12,18 @@ export interface Weights {
   evoSetup: number;    // 有进化目标但加成未满足
   reserve: number;     // 预订张数(锁卡 + 得大师球)
   endgame: number;     // 终局期对分数的额外放大
+  bestAfford: number;  // 当前可买的最高分卡(节奏:能立刻兑现的大分)
+  tempo: number;       // 离买到高分卡的接近度(差几个代币的高分卡)
 }
 
-// 训练后的默认权重(初始为人工先验,train 会覆盖)
+// 训练后的默认权重。
 export const DEFAULT_WEIGHTS: Weights = {
-  // 经自对弈坐标上升训练(sim/train.ts):对 greedy 基线胜率约 60%
-  points: 16, bonus: 4.16, pp: 0.05, afford: 0.25, evoReady: 2.6, evoSetup: 0.6, reserve: 0.2, endgame: 6,
+  // 经 CEM 自对弈训练(sim/tune.ts),目标 = 直接最小化 2 人局完成所需轮次(drill 指标);含 bestAfford/tempo 节奏特征。
+  // 验证集(独立种子,500+ 局):2p 平均轮次 53.9(旧默认) → 50.2。头对头胜率:对旧默认 ~72%、对 greedy ~69%。
+  // 多人局同样更快:3p 77.5→71.5,4p 101.5→93.7,僵局率 0%。
+  // 旧默认(对 greedy ~60% 胜率):points:16, bonus:4.16, pp:0.05, afford:0.25, evoReady:2.6, evoSetup:0.6, reserve:0.2, endgame:6, bestAfford:0, tempo:0
+  points: 4.505, bonus: 1.162, pp: 2.015, afford: 1.028, evoReady: 2.302, evoSetup: 0.217, reserve: 0.908, endgame: 9.315,
+  bestAfford: 0.526, tempo: 0.329,
 };
 
 export function evaluate(state: GameState, idx: number, w: Weights): number {
@@ -33,10 +39,20 @@ export function evaluate(state: GameState, idx: number, w: Weights): number {
   for (const c of COLOR_ORDER) pp += Math.min(6, me.tokens[c] + me.bonuses[c]);
   score += w.pp * pp;
 
-  let afford = 0;
+  let afford = 0, bestAfford = 0, tempo = 0;
+  const myTok = totalTokens(me.tokens);
   for (const pile of ALL_PILES) {
     for (const card of state.decks[pile].faceUp) {
-      if (card && buildBuyAction(me, card, { kind: 'board', cardId: card.id })) afford += 1 + card.points * 0.3;
+      if (!card) continue;
+      if (buildBuyAction(me, card, { kind: 'board', cardId: card.id })) {
+        afford += 1 + card.points * 0.3;
+        if (card.points > bestAfford) bestAfford = card.points;
+      } else if (card.points > 0) {
+        let need = card.cost.master ?? 0;
+        for (const c of COLOR_ORDER) need += Math.max(0, (card.cost[c] ?? 0) - me.bonuses[c]);
+        const gap = Math.max(0, need - myTok);
+        tempo += card.points * Math.max(0, 1 - gap / 3); // 差≤3 个代币的高分卡:越近越值
+      }
     }
   }
   let evoReady = 0, evoSetup = 0;
@@ -46,6 +62,7 @@ export function evaluate(state: GameState, idx: number, w: Weights): number {
     }
   }
   score += w.afford * afford + w.evoReady * evoReady + w.evoSetup * evoSetup + w.reserve * me.reserved.length;
+  score += w.bestAfford * bestAfford + w.tempo * tempo;
 
   const maxAny = Math.max(...state.players.map((p) => p.points));
   if (maxAny >= WIN_THRESHOLD - 3) score += w.endgame * me.points; // 终局冲分

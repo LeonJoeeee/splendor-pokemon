@@ -7,40 +7,56 @@ const AI_POLICY = heuristicPolicy();
 import { CARDS } from './data/cards';
 import { GameTable } from './ui/GameTable';
 import { useOnlineGame } from './net/useOnlineGame';
+import { loadSoloGame, saveSoloGame } from './solo/save';
 
-type Mode = null | 'local' | 'online';
+function browserStorage(): Storage | null {
+  try { return window.localStorage; } catch { return null; }
+}
+
+function buildSoloGame(n: number, name: string, seed: number): GameState {
+  const players = [{ id: 'P0', name: name || '你', isAI: false }];
+  for (let i = 1; i < n; i++) players.push({ id: `P${i}`, name: `电脑${i}`, isAI: true });
+  return createGame({ players, cards: CARDS, seed });
+}
 
 export function App() {
-  const [mode, setMode] = useState<Mode>(null);
-  if (mode === 'local') return <LocalGame onExit={() => setMode(null)} />;
-  if (mode === 'online') return <OnlineGame onExit={() => setMode(null)} />;
+  const [savedGame, setSavedGame] = useState<GameState | null>(() => loadSoloGame(browserStorage()));
+  const [activeGame, setActiveGame] = useState<GameState | null>(null);
+  const startNew = () => {
+    const fresh = buildSoloGame(4, '小智', Math.floor(Math.random() * 1e9));
+    saveSoloGame(browserStorage(), fresh);
+    setActiveGame(fresh);
+  };
+  if (activeGame) return <LocalGame initialGame={activeGame} onExit={() => {
+    setSavedGame(loadSoloGame(browserStorage()));
+    setActiveGame(null);
+  }} />;
   return (
     <div className="app menu">
       <h1>璀璨宝石：宝可梦</h1>
       <p className="menu-sub">Splendor: Pokémon · 非官方同人</p>
-      <button className="btn big-btn primary" onClick={() => setMode('local')}>🎮 单机（你 vs 电脑）</button>
-      <button className="btn big-btn" onClick={() => setMode('online')}>🌐 联机（和朋友,各用各的设备）</button>
-      <p className="menu-foot">联机:房主本机 <code>npm run server</code> 起服务器,再用 cloudflared/ngrok 暴露端口,把地址发给朋友。</p>
+      {savedGame && <button className="btn big-btn primary" onClick={() => setActiveGame(savedGame)}>继续对局 · 第 {savedGame.turnNumber} 回合</button>}
+      <button className={`btn big-btn ${savedGame ? '' : 'primary'}`} onClick={startNew}>🎮 开始新对局（你 vs 电脑）</button>
     </div>
   );
 }
 
 // ----------------------------- 单机(你 vs 电脑) ---------------------------
-function LocalGame({ onExit }: { onExit: () => void }) {
-  const [count, setCount] = useState(4);
-  const [yourName, setYourName] = useState('小智');
+function LocalGame({ initialGame, onExit }: { initialGame: GameState; onExit: () => void }) {
+  const [count, setCount] = useState(initialGame.players.length);
+  const [yourName, setYourName] = useState(initialGame.players[0].name);
   const [seedText, setSeedText] = useState('');
-  const [game, setGame] = useState<GameState>(() => build(4, '小智', 1));
+  const [setupOpen, setSetupOpen] = useState(false); // 手机:设置区折进 ⚙ 弹层
+  const [game, setGame] = useState<GameState>(initialGame);
   const aiTimer = useRef<number | null>(null);
 
-  function build(n: number, name: string, seed: number): GameState {
-    const players = [{ id: 'P0', name: name || '你', isAI: false }];
-    for (let i = 1; i < n; i++) players.push({ id: `P${i}`, name: `电脑${i}`, isAI: true });
-    return createGame({ players, cards: CARDS, seed });
-  }
+  useEffect(() => { saveSoloGame(browserStorage(), game); }, [game]);
+
   function startGame() {
     const seed = seedText.trim() ? Number(seedText.trim()) >>> 0 : Math.floor(Math.random() * 1e9);
-    setGame(build(count, yourName, seed));
+    const fresh = buildSoloGame(count, yourName, seed);
+    saveSoloGame(browserStorage(), fresh);
+    setGame(fresh);
   }
   const current = game.players[game.currentPlayerIndex];
   useEffect(() => {
@@ -63,7 +79,8 @@ function LocalGame({ onExit }: { onExit: () => void }) {
     <div className="app">
       <header className="topbar">
         <h1>璀璨宝石：宝可梦 <span className="subtitle">单机 · 你 vs 电脑</span></h1>
-        <div className="setup">
+        <button className="btn tiny setup-gear" onClick={() => setSetupOpen((o) => !o)}>⚙ 设置</button>
+        <div className={`setup ${setupOpen ? 'open' : ''}`}>
           <button className="btn tiny" onClick={onExit}>← 模式</button>
           <label>你的名字：<input className="seed-input" style={{ width: 70 }} value={yourName} maxLength={8} onChange={(e) => setYourName(e.target.value)} /></label>
           <label>总人数：
@@ -82,7 +99,7 @@ function LocalGame({ onExit }: { onExit: () => void }) {
 }
 
 // ----------------------------- 联机 ----------------------------------------
-function OnlineGame({ onExit }: { onExit: () => void }) {
+export function OnlineGame({ onExit }: { onExit: () => void }) {
   const [url, setUrl] = useState(`ws://${(typeof location !== 'undefined' && location.hostname) || 'localhost'}:8787`);
   const [go, setGo] = useState(false);
   if (!go) {
@@ -103,6 +120,7 @@ function OnlineGame({ onExit }: { onExit: () => void }) {
 function OnlineSession({ url, onExit, onBack }: { url: string; onExit: () => void; onBack: () => void }) {
   const net = useOnlineGame(url);
   const [name, setName] = useState('');
+  const [setupOpen, setSetupOpen] = useState(false); // 手机:设置区折进 ⚙ 弹层
   const joined = net.yourSeat != null;
   const active = net.seats.filter((s) => s.kind !== 'empty').length;
   const canStart = active >= 2;
@@ -112,7 +130,8 @@ function OnlineSession({ url, onExit, onBack }: { url: string; onExit: () => voi
       <div className="app">
         <header className="topbar">
           <h1>璀璨宝石：宝可梦 <span className="subtitle">联机 · 你是 {net.seats.find((s) => s.idx === net.yourSeat)?.name ?? '观战'}</span></h1>
-          <div className="setup">
+          <button className="btn tiny setup-gear" onClick={() => setSetupOpen((o) => !o)}>⚙ 设置</button>
+          <div className={`setup ${setupOpen ? 'open' : ''}`}>
             <span className="conn-status">{net.status === 'open' ? '🟢 已连接' : '🔴 断开'}</span>
             <button className="btn tiny" onClick={() => net.reset()}>回到大厅</button>
             <button className="btn tiny" onClick={onExit}>退出</button>

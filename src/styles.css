@@ -343,3 +343,175 @@ body {
   .bank-section { display: flex; flex-direction: column; justify-content: center; }
   .bank-tokens { justify-content: space-around; width: 100%; }  /* 球横向铺满右侧 */
 }
+
+/* ============ 手机分页(我的 / 对手 / 记录):每页恰好一屏,整页不滚动 ============ */
+/* 机制:手机端把 .app 钉死成 100dvh 弹性列(overflow:hidden 整页永不滚动);
+   固定的顶栏/回合栏/标签栏 flex:0 0 auto;唯一弹性区 .layout 吃掉剩余高度。
+   「我的」页里 .board=flex:1,三行 tier 各 flex:1 1 0 平分剩余高度→卡牌随屏高自适应;
+   我的购买力把竖排 combo 表用纯 CSS 压成一条横排;预订/拥有移进底部弹出层(零布局高度)。 */
+.mobile-tabs { display: none; }
+.setup-gear, .me-sheet-toggle, .me-sheet-close, .me-sheet-backdrop { display: none; }
+.me-sheet { display: contents; }            /* 桌面:包裹层透明,预订/拥有照常内联渲染 */
+
+@media (max-width: 860px) {
+  .mobile-tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; position: sticky; top: 0; z-index: 40; margin: 5px 0 3px; padding: 4px; border-radius: 14px; border: 1px solid var(--line); background: rgba(10,14,22,0.78); -webkit-backdrop-filter: saturate(160%) blur(20px); backdrop-filter: saturate(160%) blur(20px); flex: 0 0 auto; }
+  .mobile-tabs button { display: flex; align-items: center; justify-content: center; gap: 5px; background: transparent; color: var(--muted); border: none; border-radius: 10px; padding: 8px 4px; font-size: 13px; font-weight: 600; position: relative; }
+  .mobile-tabs button.active { background: var(--accent2); color: #fff; }
+  .mobile-tabs .tab-badge { min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px; line-height: 16px; font-size: 10px; background: rgba(255,255,255,0.16); }
+  .mobile-tabs button.active .tab-badge { background: rgba(255,255,255,0.3); }
+  .mobile-tabs .tab-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
+
+  /* 整页钉死:对局页=一屏弹性列,永不滚动;菜单/大厅(.menu)不受影响 */
+  .app:not(.menu) { display: flex; flex-direction: column; height: 100svh; height: 100dvh; overflow: hidden; padding: 6px 7px 8px; gap: 0; }
+  .app:not(.menu) > .turnbar, .app:not(.menu) > .topbar { flex: 0 0 auto; }
+  .topbar { gap: 6px; min-height: 0; }
+  .topbar h1 { font-size: 14px; margin: 0; }
+  .subtitle { display: none; }
+  .setup-gear { display: inline-flex; align-items: center; justify-content: center; }
+  .setup { display: none; }
+  .setup.open { display: flex; flex-direction: row; flex-wrap: wrap; align-items: center; position: fixed; top: 46px; left: 7px; right: 7px; z-index: 55; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 10px; gap: 8px; -webkit-backdrop-filter: saturate(160%) blur(22px); backdrop-filter: saturate(160%) blur(22px); box-shadow: 0 12px 40px rgba(0,0,0,0.5); }
+  .turnbar { margin: 4px 0 0; padding: 4px 9px; font-size: 12px; gap: 8px; min-height: 0; }
+  .layout { grid-template-columns: 1fr; gap: 6px; flex: 1 1 auto; min-height: 0; overflow: hidden; margin-top: 4px; }
+
+  /* 「我的」页:.board 为唯一弹性吸收区,三行 tier 平分剩余高度,卡牌自适应 */
+  .layout.tab-me { display: flex; flex-direction: column; min-height: 0; overflow: hidden; gap: 5px; }
+  .layout.tab-me .board { order: 0; flex: 1 1 auto; min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 5px; }
+  .layout.tab-me .tier-row { flex: 1 1 0; min-height: 0; }
+  .layout.tab-me .cards-row { height: 100%; }
+  .layout.tab-me .card, .layout.tab-me .card.empty { min-height: 0; height: 100%; }
+  .layout.tab-me .card-art { flex: 1 1 auto; min-height: 0; height: auto; overflow: hidden; }
+  .layout.tab-me .card-art img { max-height: 100%; }
+  .layout.tab-me .card-name, .layout.tab-me .card-cost, .layout.tab-me .card-actions { flex: 0 0 auto; }
+  .layout.tab-me .bottom-row { flex: 0 0 auto; flex-direction: row; gap: 6px; align-items: stretch; }
+  .layout.tab-me .special-section { flex: 0 0 auto; flex-direction: row; gap: 6px; }
+  .layout.tab-me .special-cell { padding: 4px; gap: 3px; }
+  .layout.tab-me .special-cell .card { flex: 0 0 70px; max-width: 70px; min-height: 0; height: auto; }
+  .layout.tab-me .special-cell .card-art { height: 36px; }
+  .layout.tab-me .special-cell .card-art img { max-height: 36px; }
+  .layout.tab-me .bank-section { flex: 1 1 auto; padding: 5px 8px; }
+  .layout.tab-me .bank-tokens { gap: 4px; justify-content: space-between; flex-wrap: nowrap; }
+  .layout.tab-me .token-big { width: 36px; height: 36px; }
+  .layout.tab-me .bank-col .btn.tiny { padding: 1px 5px; font-size: 9px; }
+  .layout.tab-me .bank-actions { margin-top: 4px; gap: 6px; }
+  .layout.tab-me .sidebar { order: 1; flex: 0 0 auto; gap: 4px; }
+  .layout.tab-me .players { display: block; }
+  .layout.tab-me .player-panel.is-opp { display: none; }
+  .layout.tab-me .player-panel.is-me { min-width: 0; width: 100%; padding: 4px 7px; }
+  .layout.tab-me .player-panel.is-me .player-head, .layout.tab-me .player-panel.is-me .row-label, .layout.tab-me .player-panel.is-me .owned-pop { display: none; }
+  .layout.tab-me .player-panel.is-me .combo-row { flex-direction: row; gap: 4px; overflow-x: auto; padding-bottom: 2px; }
+  .layout.tab-me .player-panel.is-me .combo-cell { grid-template-columns: none; display: flex; flex-direction: row; align-items: center; gap: 3px; flex: 0 0 auto; min-width: 0; padding: 3px 7px; }
+  .layout.tab-me .player-panel.is-me .combo-power { font-size: 14px; }
+  .layout.tab-me .player-panel.is-me .combo-hand, .layout.tab-me .player-panel.is-me .combo-bonus { display: none; }
+  .layout.tab-me .reserve-area, .layout.tab-me .owned-team { display: none; }
+
+  /* 预订/拥有:折进底部弹出层,零布局高度 */
+  .me-sheet-toggle { display: block; width: 100%; flex: 0 0 auto; text-align: center; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 12px; padding: 5px 8px; font-size: 12px; font-weight: 600; }
+  .me-sheet.open { display: block; position: fixed; left: 0; right: 0; bottom: 0; z-index: 61; max-height: 75svh; max-height: 75dvh; overflow-y: auto; background: var(--panel); border-top: 1px solid var(--line); border-radius: 18px 18px 0 0; padding: 12px; -webkit-backdrop-filter: saturate(160%) blur(22px); backdrop-filter: saturate(160%) blur(22px); }
+  .me-sheet.open .reserve-area, .me-sheet.open .owned-team { display: block; }
+  .me-sheet.open .reserved-row { display: grid; }
+  .me-sheet.open .owned-chips { flex-wrap: wrap; overflow: visible; max-height: none; }
+  .me-sheet.open .me-sheet-close { display: block; margin: 0 0 8px auto; background: var(--panel2); color: var(--muted); border: 1px solid var(--line); border-radius: 980px; padding: 4px 12px; font-size: 12px; }
+  .me-sheet-backdrop { display: block; position: fixed; inset: 0; z-index: 60; background: rgba(0,0,0,0.5); }
+
+  /* 棋盘整体压缩(沿用旧手机规则) */
+  .board { gap: 5px; }
+  .tier-row { gap: 5px; }
+  .deck-pile { width: 30px; flex: 0 0 30px; padding: 3px 1px; }
+  .deck-label { font-size: 12px; }
+  .deck-pile .deck-count, .deck-pile .btn.tiny { display: none; }
+  .cards-row { gap: 4px; }
+  .card { padding: 4px; gap: 1px; }
+  .card-name { font-size: 11px; }
+  .card-name-en { display: none; }
+  .card-points { font-size: 14px; min-height: 16px; }
+  .card-bonus { height: 17px; min-width: 17px; font-size: 10px; }
+  .card-tags { display: none; }
+  .cost-chip { min-width: 16px; font-size: 10px; padding: 0 3px; }
+  .card-actions { gap: 4px; }
+  .btn.buy, .btn.reserve { padding: 3px 0; font-size: 11px; }
+  .special-label { font-size: 11px; }
+  .hint { display: none; }
+
+  /* 「对手」页:各对手面板平分一屏,拥有列表面板内滚动 */
+  .layout.tab-opp { display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+  .layout.tab-opp .board, .layout.tab-opp .reserve-area, .layout.tab-opp .owned-team, .layout.tab-opp .me-sheet-toggle { display: none; }
+  .layout.tab-opp .player-panel.is-me { display: none; }
+  .layout.tab-opp .sidebar { flex: 1 1 auto; min-height: 0; display: flex; }
+  .layout.tab-opp .players { display: flex; flex-direction: column; overflow: hidden; flex: 1 1 auto; min-height: 0; gap: 6px; }
+  .layout.tab-opp .player-panel { min-width: 0; width: 100%; flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; padding: 6px 9px; }
+  .layout.tab-opp .player-panel .row-label { display: block; }
+  .layout.tab-opp .player-panel .combo-row { flex-direction: row; gap: 4px; overflow-x: auto; flex: 0 0 auto; }
+  .layout.tab-opp .player-panel .combo-cell { grid-template-columns: none; display: flex; flex-direction: row; align-items: center; gap: 3px; flex: 0 0 auto; min-width: 0; padding: 3px 7px; }
+  .layout.tab-opp .player-panel .combo-hand, .layout.tab-opp .player-panel .combo-bonus { display: none; }
+  .layout.tab-opp .owned-pop { display: block; position: static; margin-top: 6px; flex: 1 1 auto; min-height: 0; overflow-y: auto; border: 1px solid var(--line); background: rgba(255,255,255,0.03); box-shadow: none; }
+  .layout.tab-opp .owned-pop-chips { max-height: none; }
+
+  /* 「记录」页:日志列表内部滚动,整页保持钉死 */
+  .layout.tab-log { display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+  .layout.tab-log .board, .layout.tab-log .players, .layout.tab-log .reserve-area, .layout.tab-log .owned-team, .layout.tab-log .me-sheet-toggle { display: none; }
+  .layout.tab-log .sidebar { flex: 1 1 auto; min-height: 0; display: flex; }
+  .layout.tab-log .log { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; width: 100%; }
+  .layout.tab-log .log ul { flex: 1 1 auto; min-height: 0; overflow-y: auto; max-height: none; }
+}
+
+/* 桌面护栏(≥861px):手机专属节点永不出现,设置区/弹出层复位为内联,resize 后自愈 */
+@media (min-width: 861px) {
+  .setup-gear, .me-sheet-toggle, .me-sheet-close, .me-sheet-backdrop { display: none !important; }
+  .setup { display: flex !important; position: static !important; }
+  .me-sheet { display: contents !important; }
+}
+
+/* ============ 手机修复 r5:消除横向裁剪(每行第4张卡 + 半数供给球被切到屏外)============ */
+/* 根因:.layout.tab-me 的 flex/grid 子项缺 min-width:0(默认 min-width:auto),内容(~475px)
+   不肯收缩到视口(360–390px)以下,被 .app 的 overflow:hidden 裁到屏外 → 第4张卡和一半
+   供给球消失、点不到。补 min-width:0 让其随视口收缩;供给区 6 球改 6 列等分自适应永远放下。 */
+@media (max-width: 860px) {
+  .app:not(.menu) > * { min-width: 0; }
+  .layout.tab-me, .layout.tab-me .board, .layout.tab-me .tier-row,
+  .layout.tab-me .cards-row, .layout.tab-me .cards-row .card { min-width: 0; }
+
+  /* 供给区:6 个球用 6 列等分(随容器宽自适应);特殊格收窄并顶端对齐(不拉伸,消除卡下空黑),
+     把多出的宽度让给供给区,使球放大到 ~40-44px、取2 标签清晰。 */
+  .layout.tab-me .bottom-row { min-width: 0; align-items: flex-start; }
+  .layout.tab-me .special-section, .layout.tab-me .bank-section, .layout.tab-me .bank-col { min-width: 0; }
+  .layout.tab-me .special-section { gap: 5px; }
+  /* 特殊格强制收窄到 54px(隐藏「X张」计数、小号标签、卡填满格),把宽度让给供给区 */
+  .layout.tab-me .special-cell { flex: 0 0 54px; width: 54px; align-self: flex-start; padding: 4px 3px; }
+  .layout.tab-me .special-cell .special-head .deck-count { display: none; }
+  .layout.tab-me .special-cell .special-label { font-size: 10px; }
+  .layout.tab-me .special-cell .card { flex: 0 0 auto; width: 100%; max-width: none; }
+  .layout.tab-me .special-cell .card-art { height: 30px; }
+  .layout.tab-me .special-cell .card-art img { max-height: 30px; }
+  .layout.tab-me .bank-tokens { display: grid; grid-template-columns: repeat(6, 1fr); gap: 5px; }
+  .layout.tab-me .token-big { width: 100%; max-width: 46px; height: auto; aspect-ratio: 1; }
+}
+
+/* ============ 桌面修复 r5:调小固定尺寸,整页收进一屏(适配 MacBook 最大化,≤~700px)============ */
+/* 桌面那套"一屏"原本靠固定像素硬调,无视口约束 → 内容恒 ~890px,矮于它的窗口(720–860)
+   就整页纵向滚动。这里把卡牌/侧栏各区的固定高度统一调小,使两列都收进常见 MacBook 可用高度。 */
+@media (min-width: 861px) {
+  .app { padding: 5px 12px 8px; }
+  .turnbar { margin: 4px 0; padding: 4px 12px; }
+  .layout { gap: 8px; }
+  .board { gap: 4px; }
+
+  /* 棋盘卡牌压扁 */
+  .card { min-height: 120px; } .card.empty { min-height: 120px; }
+  .card-art { height: 48px; } .card-art img { max-height: 48px; }
+  .card-points { font-size: 16px; min-height: 17px; }
+
+  /* 传说/稀有格(宽度不动,只压高) */
+  .special-cell .card { min-height: 104px; }
+  .special-cell .card-art { height: 46px; } .special-cell .card-art img { max-height: 46px; }
+
+  /* 侧栏各区收紧 */
+  .sidebar { gap: 6px; }
+  .players { gap: 6px; }
+  .player-panel { padding: 6px 8px; }
+  .combo-cell { padding: 1px 8px; }
+  .combo-power { font-size: 13px; }
+  .reserved-row .card { min-height: 90px; }
+  .reserved-row .card-art { height: 28px; } .reserved-row .card-art img { max-height: 28px; }
+  .owned-chips { max-height: 48px; }
+  .log ul { max-height: 48px; }
+}

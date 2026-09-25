@@ -1,6 +1,6 @@
 // 共享对局视图(本地与联机复用):回合栏 + 棋盘 + 侧栏 + 全部交互。
 // 交互通过 dispatch(action) 上抛(本地=applyAction;联机=发服务器);youIndex=null 表示本地热座(操作当前行动者)。
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   buildBuyAction,
   colorVectorMeets,
@@ -35,6 +35,8 @@ function findAnywhere(game: GameState, cardId: string): Card | null {
 export function GameTable({ game, youIndex, dispatch }: { game: GameState; youIndex: number | null; dispatch: (a: Action) => void }) {
   const [selected, setSelected] = useState<Record<Color, number>>(zeroSel);
   const [discardSel, setDiscardSel] = useState<Record<PayableToken, number>>(zeroPool);
+  const [tab, setTab] = useState<'me' | 'opp' | 'log'>('me'); // 仅手机:分页
+  const [meSheet, setMeSheet] = useState(false);              // 仅手机:预订/拥有底部弹出层
 
   const current = game.players[game.currentPlayerIndex];
   const me = youIndex != null ? game.players[youIndex] : current; // 视角玩家
@@ -45,6 +47,13 @@ export function GameTable({ game, youIndex, dispatch }: { game: GameState; youIn
   const evolveOptions = useMemo<EvolveAction[]>(() => (humanEvolving ? legalEvolutions(game, me) : []), [game, humanEvolving, me]);
 
   const act = (a: Action) => { dispatch(a); setSelected(zeroSel()); setDiscardSel(zeroPool()); };
+
+  // 手机:轮到我(含回合末弃牌/进化)时,自动切回「我的」页,免得在对手/记录页错过操作
+  useEffect(() => { if (isMyTurn) setTab('me'); }, [isMyTurn]);
+  // 切页或轮转时自动收起弹出层,避免它盖住棋盘
+  useEffect(() => { setMeSheet(false); }, [tab, game.currentPlayerIndex]);
+  const oppCount = game.players.length - 1;
+  const needAction = isMyTurn && (game.awaitingDiscard || game.awaitingEvolve);
 
   // 取币
   const selectedCount = COLOR_ORDER.reduce((n, c) => n + (selected[c] > 0 ? 1 : 0), 0);
@@ -161,7 +170,17 @@ export function GameTable({ game, youIndex, dispatch }: { game: GameState; youIn
         )}
       </div>
 
-      <div className="layout">
+      <nav className="mobile-tabs">
+        <button className={tab === 'me' ? 'active' : ''} onClick={() => setTab('me')}>
+          🎮 我的{needAction && <i className="tab-dot" />}
+        </button>
+        <button className={tab === 'opp' ? 'active' : ''} onClick={() => setTab('opp')}>
+          👥 对手 <span className="tab-badge">{oppCount}</span>{!isMyTurn && !game.isGameOver && <i className="tab-dot" />}
+        </button>
+        <button className={tab === 'log' ? 'active' : ''} onClick={() => setTab('log')}>📜 记录</button>
+      </nav>
+
+      <div className={`layout tab-${tab}`}>
         <main className="board">
           {TIER_ROWS.map((t) => renderRow(t, `T${t}`, true))}
           <div className="bottom-row">
@@ -216,9 +235,12 @@ export function GameTable({ game, youIndex, dispatch }: { game: GameState; youIn
         <aside className="sidebar">
           <div className="players">
             {game.players.map((p, i) => (
-              <PlayerPanel key={p.id} player={p} isCurrent={i === game.currentPlayerIndex && !game.isGameOver} />
+              <PlayerPanel key={p.id} player={p} isCurrent={i === game.currentPlayerIndex && !game.isGameOver} mine={p.id === me.id} />
             ))}
           </div>
+          <button className="me-sheet-toggle" onClick={() => setMeSheet(true)}>预订 {me.reserved.length}/3 · 拥有 {me.purchased.length} ▴</button>
+          <div className={`me-sheet ${meSheet ? 'open' : ''}`}>
+          <button className="me-sheet-close" onClick={() => setMeSheet(false)}>✕ 关闭</button>
           <div className="reserve-area">
             <span className="section-label">我的预订（{me.reserved.length}/3）{youIndex != null ? '' : `· ${me.name}`}</span>
             <div className="reserved-row">
@@ -243,6 +265,8 @@ export function GameTable({ game, youIndex, dispatch }: { game: GameState; youIn
               })}
             </div>
           </div>
+          </div>
+          {meSheet && <div className="me-sheet-backdrop" onClick={() => setMeSheet(false)} />}
           <div className="log">
             <span className="section-label">对局记录</span>
             <ul>{game.log.slice(-16).reverse().map((l, i) => <li key={game.log.length - i}>{l}</li>)}</ul>
